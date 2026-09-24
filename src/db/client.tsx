@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
+import { Logo } from '../components/Logo';
 import { runMigrations } from './migrations';
 import { seedDefaultCategories } from './seed';
 
@@ -15,7 +16,8 @@ async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
 function DatabaseLoadingFallback() {
   return (
     <View style={styles.fallback}>
-      <ActivityIndicator />
+      <Logo size={96} />
+      <ActivityIndicator style={styles.spinner} />
     </View>
   );
 }
@@ -37,4 +39,5 @@ export function AppDatabaseProvider({ children }: { children: React.ReactNode })
 
 const styles = StyleSheet.create({
   fallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  spinner: { marginTop: 24 },
 });

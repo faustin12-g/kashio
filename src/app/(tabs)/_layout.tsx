@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { Tabs } from 'expo-router';
+import { BrandTitle } from '../../components/Logo';
 import { useTheme } from '../../constants/theme';
 
 const ICONS: Record<string, string> = {
@@ -25,7 +26,7 @@ export default function TabsLayout() {
         tabBarIcon: () => <Text style={{ fontSize: 20 }}>{ICONS[route.name] ?? '•'}</Text>,
       })}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home', headerTitle: 'Buget' }} />
+      <Tabs.Screen name="index" options={{ title: 'Home', headerTitle: () => <BrandTitle /> }} />
       <Tabs.Screen name="transactions" options={{ title: 'Transactions' }} />
       <Tabs.Screen name="budgets" options={{ title: 'Budgets' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />

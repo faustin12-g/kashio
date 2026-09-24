@@ -5,6 +5,7 @@ import { useCategoriesStore } from '../store/categoriesStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
 import { useTheme } from '../constants/theme';
+import { Logo } from './Logo';
 
 /**
  * Runs once, after the database connection is ready: loads categories and
@@ -37,7 +38,8 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <View style={[styles.fallback, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.primary} />
+        <Logo size={96} />
+        <ActivityIndicator color={theme.primary} style={styles.spinner} />
       </View>
     );
   }
@@ -47,4 +49,5 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   fallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  spinner: { marginTop: 24 },
 });

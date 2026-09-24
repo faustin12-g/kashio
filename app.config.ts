@@ -34,9 +34,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.android,
     package: 'com.buget.app',
     adaptiveIcon: {
-      backgroundColor: '#0B1220',
+      backgroundColor: '#FAF7F3',
       foregroundImage: './assets/android-icon-foreground.png',
-      backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
@@ -49,6 +48,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-sqlite',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash-icon.png',
+        imageWidth: 220,
+        resizeMode: 'contain',
+        backgroundColor: '#FAF7F3',
+        dark: {
+          image: './assets/splash-icon-dark.png',
+          backgroundColor: '#0B0C10',
+        },
+      },
+    ],
     ['@react-native-google-signin/google-signin', { iosUrlScheme: GOOGLE_IOS_URL_SCHEME }],
     [
       'expo-build-properties',

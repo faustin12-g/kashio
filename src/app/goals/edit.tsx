@@ -90,7 +90,8 @@ export default function EditGoalScreen() {
         label={t('goal.target')}
         prefix={currency}
         value={target}
-        onChangeText={(text) => setTarget(text.replace(/[^0-9.,]/g, ''))}
+        amount
+        onChangeText={setTarget}
         keyboardType="decimal-pad"
         placeholder="0.00"
       />

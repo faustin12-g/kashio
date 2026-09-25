@@ -25,6 +25,7 @@ export const META_KEYS = {
   reminderEnabled: 'reminder_enabled',
   reminderTime: 'reminder_time',
   appLockEnabled: 'app_lock_enabled',
+  lockTimeout: 'app_lock_timeout_ms',
   autoBackupEnabled: 'auto_backup_enabled',
   autoBackupWifiOnly: 'auto_backup_wifi_only',
   onboardingDone: 'onboarding_done',

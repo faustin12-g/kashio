@@ -82,6 +82,7 @@ export default function CategoriesScreen() {
 
       <CategoryFormModal
         visible={modalVisible}
+        lockedType={tab}
         onClose={() => setModalVisible(false)}
         onSubmit={async (input) => {
           await create(db, input);

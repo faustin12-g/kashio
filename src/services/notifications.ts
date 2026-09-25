@@ -117,3 +117,40 @@ export async function scheduleDebtReminder(
 export async function cancelDebtReminder(debtId: string): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(debtReminderId(debtId));
 }
+
+const RECURRING_PREFIX = 'rec:';
+
+export interface RecurringReminder {
+  /** Unique per rule and occurrence, so the same one is never scheduled twice. */
+  id: string;
+  when: Date;
+  title: string;
+  body: string;
+}
+
+/**
+ * Replaces every scheduled recurring-item reminder with the given ones. Past
+ * times are ignored. Nothing is scheduled if notifications are not allowed.
+ */
+export async function replaceRecurringReminders(reminders: RecurringReminder[]): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((item) => item.identifier.startsWith(RECURRING_PREFIX))
+      .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
+  );
+  if (!(await hasNotificationPermission())) return;
+  await configureNotifications();
+  for (const reminder of reminders) {
+    if (reminder.when.getTime() <= Date.now()) continue;
+    await Notifications.scheduleNotificationAsync({
+      identifier: RECURRING_PREFIX + reminder.id,
+      content: { title: reminder.title, body: reminder.body },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: reminder.when,
+        channelId: REMINDERS_CHANNEL,
+      },
+    });
+  }
+}

@@ -91,7 +91,8 @@ export default function EditAccountScreen() {
         label={t('acc.opening')}
         prefix={currency}
         value={opening}
-        onChangeText={(text) => setOpening(text.replace(/[^0-9.,-]/g, ''))}
+        amount="signed"
+        onChangeText={setOpening}
         keyboardType="numbers-and-punctuation"
         placeholder="0"
       />

@@ -40,6 +40,41 @@ export function parseSignedAmountToMinor(input: string): number {
   return parseAmountToMinor(trimmed);
 }
 
+/**
+ * How an amount is shown while it is being typed: thousands separated by
+ * commas, decimals after a point. "35000" -> "35,000", "1234.5" -> "1,234.5".
+ * The value the form keeps (and parses) is always the plain "raw" text with
+ * no commas; this is only for display.
+ */
+export function formatAmountForInput(raw: string): string {
+  const negative = raw.startsWith('-');
+  const body = negative ? raw.slice(1) : raw;
+  const dot = body.indexOf('.');
+  const whole = dot === -1 ? body : body.slice(0, dot);
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (negative ? '-' : '') + grouped + (dot === -1 ? '' : body.slice(dot));
+}
+
+/**
+ * Turns what the person just typed into the plain raw text a form keeps:
+ * digits and at most one decimal point with two decimals, no commas (they
+ * are added back for display). `previousRaw` is the raw text before this
+ * keystroke; it lets a comma typed at the very end count as the decimal
+ * point, which is what the decimal key produces on phones set to a language
+ * that writes decimals with a comma.
+ */
+export function sanitizeAmountInput(text: string, previousRaw: string, signed = false): string {
+  const shownBefore = formatAmountForInput(previousRaw);
+  let value = text === shownBefore + ',' && !previousRaw.includes('.') ? previousRaw + '.' : text.replace(/,/g, '');
+  const negative = signed && value.trim().startsWith('-');
+  value = value.replace(/[^0-9.]/g, '');
+  const dot = value.indexOf('.');
+  if (dot !== -1) value = value.slice(0, dot + 1) + value.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  if (value.startsWith('.')) value = '0' + value;
+  value = value.replace(/^0+(?=\d)/, '');
+  return (negative ? '-' : '') + value;
+}
+
 /** Formats minor units back into a plain decimal string for editing, e.g. 1250 -> "12.50". */
 export function minorToInputString(minor: number): string {
   return (minor / 100).toFixed(2);

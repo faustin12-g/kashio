@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
@@ -27,6 +27,7 @@ import type { EntryType } from '../../models/types';
 export default function NewTransactionScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ type?: string }>();
   const db = useSQLiteContext();
   const { t } = useTranslation();
   const money = useMoney();
@@ -35,7 +36,7 @@ export default function NewTransactionScreen() {
   const createTransaction = useTransactionsStore((state) => state.create);
   const currency = useSettingsStore((state) => state.currency);
 
-  const [type, setType] = useState<EntryType>('expense');
+  const [type, setType] = useState<EntryType>(params.type === 'income' ? 'income' : 'expense');
   const [amountText, setAmountText] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);

@@ -159,7 +159,8 @@ export function TransactionFilterSheet({
                   <TextField
                     label={t('tx.min')}
                     value={state.minAmount}
-                    onChangeText={(minAmount) => set({ minAmount: minAmount.replace(/[^0-9.,]/g, '') })}
+                    amount
+                    onChangeText={(minAmount) => set({ minAmount })}
                     keyboardType="decimal-pad"
                     placeholder="0"
                   />
@@ -168,7 +169,8 @@ export function TransactionFilterSheet({
                   <TextField
                     label={t('tx.max')}
                     value={state.maxAmount}
-                    onChangeText={(maxAmount) => set({ maxAmount: maxAmount.replace(/[^0-9.,]/g, '') })}
+                    amount
+                    onChangeText={(maxAmount) => set({ maxAmount })}
                     keyboardType="decimal-pad"
                     placeholder="∞"
                   />

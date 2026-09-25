@@ -17,6 +17,7 @@ import { useTransactionsStore } from '../../store/transactionsStore';
 import { useCategoriesStore } from '../../store/categoriesStore';
 import { useBudgetsStore } from '../../store/budgetsStore';
 import { useAccountsStore } from '../../store/accountsStore';
+import { useRecurringStore } from '../../store/recurringStore';
 import { useSyncStore } from '../../store/syncStore';
 import { buildSummary, getSummary, type Summary } from '../../services/summary';
 import { currentPeriodRange, todayIso } from '../../utils/date';
@@ -38,6 +39,8 @@ export default function DashboardScreen() {
   const balances = useAccountsStore((state) => state.balances);
   const loadAccounts = useAccountsStore((state) => state.load);
   const syncAccount = useSyncStore((state) => state.account);
+  const dueCount = useRecurringStore((state) => state.dueItems.length);
+  const loadRecurring = useRecurringStore((state) => state.load);
 
   const [monthTotals, setMonthTotals] = React.useState<{ categoryId: string | null; totalMinor: number }[]>([]);
   const [summaryPeriod, setSummaryPeriod] = React.useState<SummaryPeriod>('all');
@@ -53,13 +56,14 @@ export default function DashboardScreen() {
       loadTransactions(db, { from: start, to: end }),
       loadBudgets(db),
       loadAccounts(db),
+      loadRecurring(db),
       sumByCategory(db, { from: start, to: end, type: 'expense' }).then(setMonthTotals),
       Promise.all([
         getSummary(db, {}, { includeOpeningBalance: true }),
         getSummary(db, { from: start, to: end }),
       ]).then(([all, month]) => setSummaries({ all, month })),
     ]);
-  }, [db, start, end, loadTransactions, loadBudgets, loadAccounts]);
+  }, [db, start, end, loadTransactions, loadBudgets, loadAccounts, loadRecurring]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,8 +93,19 @@ export default function DashboardScreen() {
 
   const recentTransactions = transactions.slice(0, 5);
 
+  const fabNode = (
+    <Pressable
+      onPress={() => router.push('/transactions/new')}
+      style={[styles.fab, { backgroundColor: theme.primary }]}
+      accessibilityRole="button"
+      accessibilityLabel={t('home.addTransaction')}
+    >
+      <Icon name="plus" size={28} color="#FFFFFF" />
+    </Pressable>
+  );
+
   return (
-    <Screen>
+    <Screen overlay={fabNode}>
       <View style={styles.headerRow}>
         <Text style={[styles.greeting, { color: theme.textMuted }]}>{t('home.overview')}</Text>
         <Pressable
@@ -109,6 +124,35 @@ export default function DashboardScreen() {
       </View>
 
       <SummaryCard summary={summaries[summaryPeriod]} period={summaryPeriod} onPeriodChange={setSummaryPeriod} />
+
+      <View style={styles.quickRow}>
+        {(['expense', 'income'] as const).map((type) => {
+          const color = type === 'expense' ? theme.expense : theme.income;
+          return (
+            <Pressable
+              key={type}
+              onPress={() => router.push({ pathname: '/transactions/new', params: { type } })}
+              accessibilityRole="button"
+              style={[styles.quickButton, { backgroundColor: color + '18', borderColor: color + '44' }]}
+            >
+              <Icon name="plus" size={18} color={color} />
+              <Text style={{ color, fontWeight: '700' }}>{type === 'expense' ? t('form.expense') : t('form.income')}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {dueCount > 0 && (
+        <Pressable
+          onPress={() => router.push('/recurring')}
+          accessibilityRole="button"
+          style={[styles.dueBanner, { backgroundColor: theme.primary + '18', borderColor: theme.primary + '55' }]}
+        >
+          <Icon name="bell-ring-outline" size={20} color={theme.primary} />
+          <Text style={{ flex: 1, color: theme.text, fontWeight: '600' }}>{t('rec.dueBanner', { count: dueCount })}</Text>
+          <Icon name="chevron-right" size={20} color={theme.textMuted} />
+        </Pressable>
+      )}
 
       {accounts.length > 0 && (
         <View style={styles.section}>
@@ -204,14 +248,6 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      <Pressable
-        onPress={() => router.push('/transactions/new')}
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-        accessibilityRole="button"
-        accessibilityLabel={t('home.addTransaction')}
-      >
-        <Icon name="plus" size={28} color="#FFFFFF" />
-      </Pressable>
     </Screen>
   );
 }
@@ -236,6 +272,25 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dueBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
   accountsRow: { gap: 10 },
   accountCard: { width: 150, borderRadius: 14, borderWidth: 1, padding: 12, gap: 4 },
   accountIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

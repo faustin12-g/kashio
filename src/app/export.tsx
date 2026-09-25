@@ -9,6 +9,7 @@ import { endOfMonth, format, startOfMonth, startOfYear, subMonths } from 'date-f
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { ChipGroup } from '../components/ChipGroup';
+import { LOGO_DATA_URI } from '../constants/logoDataUri';
 import { useTheme } from '../constants/theme';
 import { useMoney } from '../hooks/useMoney';
 import { categoryDisplayName, formatDateForLanguage } from '../i18n';
@@ -126,6 +127,7 @@ export default function ExportScreen() {
           spentText: money(summary.expenseMinor),
           balanceText: money(summary.incomeMinor - summary.expenseMinor),
           formatAmount: money,
+          logoDataUri: LOGO_DATA_URI,
         });
         const printed = await Print.printToFileAsync({ html });
         uri = printed.uri;

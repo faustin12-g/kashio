@@ -101,7 +101,8 @@ export default function EditDebtScreen() {
         label={t('debt.amount')}
         prefix={currency}
         value={amount}
-        onChangeText={(text) => setAmount(text.replace(/[^0-9.,]/g, ''))}
+        amount
+        onChangeText={setAmount}
         keyboardType="decimal-pad"
         placeholder="0.00"
       />

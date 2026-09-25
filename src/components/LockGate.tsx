@@ -17,6 +17,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const { t } = useTranslation();
   const enabled = useSettingsStore((state) => state.appLockEnabled);
+  const timeoutMs = useSettingsStore((state) => state.lockTimeoutMs);
   const [locked, setLocked] = useState(enabled);
   const [failed, setFailed] = useState(false);
   const backgroundedAt = useRef<number | null>(null);
@@ -46,12 +47,12 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       if (state === 'background') {
         backgroundedAt.current = Date.now();
       } else if (state === 'active') {
-        if (shouldLockOnReturn(enabled, backgroundedAt.current, Date.now())) setLocked(true);
+        if (shouldLockOnReturn(enabled, backgroundedAt.current, Date.now(), timeoutMs)) setLocked(true);
         backgroundedAt.current = null;
       }
     });
     return () => subscription.remove();
-  }, [enabled]);
+  }, [enabled, timeoutMs]);
 
   useEffect(() => {
     if (!locked || !enabled) return;

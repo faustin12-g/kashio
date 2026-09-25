@@ -3,6 +3,7 @@ import {
   nextOccurrence,
   occurrenceDate,
   recurringTransactionId,
+  upcomingOccurrences,
 } from '../../src/services/recurring';
 
 const monthly = (overrides = {}) => ({
@@ -97,5 +98,28 @@ describe('recurringTransactionId', () => {
   it('differs between occurrences and between rules', () => {
     expect(recurringTransactionId('abc', 4)).not.toBe(recurringTransactionId('abc', 5));
     expect(recurringTransactionId('abc', 4)).not.toBe(recurringTransactionId('xyz', 4));
+  });
+});
+
+describe('upcomingOccurrences', () => {
+  it('lists the next occurrences from the first one not yet handled, past or future', () => {
+    const rule = monthly({ startDate: '2026-01-15', generatedCount: 2 });
+    expect(upcomingOccurrences(rule, 3)).toEqual([
+      { index: 2, date: '2026-03-15' },
+      { index: 3, date: '2026-04-15' },
+      { index: 4, date: '2026-05-15' },
+    ]);
+  });
+
+  it('stops at the end date', () => {
+    const rule = monthly({ startDate: '2026-01-15', endDate: '2026-02-20' });
+    expect(upcomingOccurrences(rule, 5)).toEqual([
+      { index: 0, date: '2026-01-15' },
+      { index: 1, date: '2026-02-15' },
+    ]);
+  });
+
+  it('is empty for a paused item', () => {
+    expect(upcomingOccurrences(monthly({ isActive: false }), 3)).toEqual([]);
   });
 });

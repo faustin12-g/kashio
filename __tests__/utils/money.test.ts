@@ -1,9 +1,11 @@
 import {
+  formatAmountForInput,
   formatMoney,
   formatSignedMoney,
   minorToInputString,
   parseAmountToMinor,
   parseSignedAmountToMinor,
+  sanitizeAmountInput,
 } from '../../src/utils/money';
 
 describe('parseAmountToMinor', () => {
@@ -81,5 +83,50 @@ describe('parseSignedAmountToMinor', () => {
     expect(Number.isNaN(parseSignedAmountToMinor('abc'))).toBe(true);
     expect(Number.isNaN(parseSignedAmountToMinor('-'))).toBe(true);
     expect(Number.isNaN(parseSignedAmountToMinor('--5'))).toBe(true);
+  });
+});
+
+describe('amount typing helpers', () => {
+  it('adds thousands separators as digits are typed', () => {
+    expect(formatAmountForInput('')).toBe('');
+    expect(formatAmountForInput('35')).toBe('35');
+    expect(formatAmountForInput('350')).toBe('350');
+    expect(formatAmountForInput('3500')).toBe('3,500');
+    expect(formatAmountForInput('35000')).toBe('35,000');
+    expect(formatAmountForInput('1234567')).toBe('1,234,567');
+    expect(formatAmountForInput('1234.5')).toBe('1,234.5');
+    expect(formatAmountForInput('1234.')).toBe('1,234.');
+    expect(formatAmountForInput('-2500')).toBe('-2,500');
+  });
+
+  it('keeps the value free of commas', () => {
+    // The screen shows "3,500"; the person types a 0 after it.
+    expect(sanitizeAmountInput('3,5000', '3500')).toBe('35000');
+    expect(sanitizeAmountInput('35,000', '3500')).toBe('35000');
+  });
+
+  it('allows one decimal point and two decimals', () => {
+    expect(sanitizeAmountInput('12.345', '12.34')).toBe('12.34');
+    expect(sanitizeAmountInput('1.2.3', '1.2')).toBe('1.23');
+    expect(sanitizeAmountInput('.', '')).toBe('0.');
+  });
+
+  it('treats a comma typed at the end as the decimal point', () => {
+    expect(sanitizeAmountInput('35,000,', '35000')).toBe('35000.');
+    expect(sanitizeAmountInput('12,', '12')).toBe('12.');
+  });
+
+  it('drops leading zeros and stray characters', () => {
+    expect(sanitizeAmountInput('007', '00')).toBe('7');
+    expect(sanitizeAmountInput('12abc', '12')).toBe('12');
+  });
+
+  it('accepts a minus sign only when signed', () => {
+    expect(sanitizeAmountInput('-500', '', true)).toBe('-500');
+    expect(sanitizeAmountInput('-500', '')).toBe('500');
+  });
+
+  it('round-trips through the parser', () => {
+    expect(parseAmountToMinor(sanitizeAmountInput('35,000', '3500'))).toBe(3_500_000);
   });
 });

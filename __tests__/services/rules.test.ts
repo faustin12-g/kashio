@@ -1,5 +1,10 @@
 import { BACKUP_INTERVAL_MS, decideAutoBackup, isBackupDue, type AutoBackupConditions } from '../../src/services/autoBackupRules';
-import { RELOCK_AFTER_MS, shouldLockOnReturn } from '../../src/services/lockRules';
+import {
+  LOCK_TIMEOUT_OPTIONS,
+  parseLockTimeout,
+  RELOCK_AFTER_MS,
+  shouldLockOnReturn,
+} from '../../src/services/lockRules';
 
 const NOW = 1_800_000_000_000;
 
@@ -69,5 +74,23 @@ describe('shouldLockOnReturn', () => {
 
   it('does not lock if the app was never sent to the background', () => {
     expect(shouldLockOnReturn(true, null, NOW)).toBe(false);
+  });
+});
+
+describe('lock timeout', () => {
+  it('locks straight away when the timeout is zero', () => {
+    expect(shouldLockOnReturn(true, NOW, NOW, 0)).toBe(true);
+  });
+
+  it('waits for the chosen time before locking', () => {
+    expect(shouldLockOnReturn(true, NOW - 4 * 60_000, NOW, 5 * 60_000)).toBe(false);
+    expect(shouldLockOnReturn(true, NOW - 5 * 60_000, NOW, 5 * 60_000)).toBe(true);
+  });
+
+  it('accepts only the offered choices', () => {
+    for (const option of LOCK_TIMEOUT_OPTIONS) expect(parseLockTimeout(String(option))).toBe(option);
+    expect(parseLockTimeout(null)).toBe(RELOCK_AFTER_MS);
+    expect(parseLockTimeout('12345')).toBe(RELOCK_AFTER_MS);
+    expect(parseLockTimeout('abc')).toBe(RELOCK_AFTER_MS);
   });
 });

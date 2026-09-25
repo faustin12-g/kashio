@@ -62,7 +62,13 @@ export function useActiveCategories(): Category[] {
     () =>
       categories
         .filter((category) => !category.isArchived)
-        .sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0) || a.name.localeCompare(b.name)),
+        .sort(
+          (a, b) =>
+            (usage[b.id] ?? 0) - (usage[a.id] ?? 0) ||
+            // Among equally used ones, the newest comes first so a category you just added is easy to find.
+            b.createdAt - a.createdAt ||
+            a.name.localeCompare(b.name)
+        ),
     [categories, usage]
   );
 }

@@ -115,7 +115,8 @@ export default function DebtDetailScreen() {
             label={t('debt.addPayment')}
             prefix={currency}
             value={amount}
-            onChangeText={(text) => setAmount(text.replace(/[^0-9.,]/g, ''))}
+            amount
+        onChangeText={setAmount}
             keyboardType="decimal-pad"
             placeholder="0.00"
           />

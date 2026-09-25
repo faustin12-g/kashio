@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { fonts } from '../constants/fonts';
 import { useTheme } from '../constants/theme';
 
 const LOGO_BLUE = require('../../assets/logo-mark.png');
@@ -35,5 +36,5 @@ export function BrandTitle() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontSize: 18, fontWeight: '800' },
+  name: { fontSize: 18, fontFamily: fonts.extrabold },
 });

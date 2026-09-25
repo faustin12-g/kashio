@@ -85,7 +85,8 @@ export default function TransferScreen() {
         label={t('acc.amount')}
         prefix={currency}
         value={amount}
-        onChangeText={(text) => setAmount(text.replace(/[^0-9.,]/g, ''))}
+        amount
+        onChangeText={setAmount}
         keyboardType="decimal-pad"
         placeholder="0.00"
       />

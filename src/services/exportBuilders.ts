@@ -83,6 +83,8 @@ export interface ReportInput {
   balanceText: string;
   /** Formats an amount for display, e.g. "RWF 6,000". */
   formatAmount: (minor: number) => string;
+  /** Logo shown in the report header, as a data URI. Left out when not given. */
+  logoDataUri?: string;
 }
 
 /** A printable summary plus the full list of transactions, as a self-contained HTML page for PDF conversion. */
@@ -111,6 +113,9 @@ export function buildReportHtml(input: ReportInput): string {
 <style>
   body { font-family: Arial, Helvetica, sans-serif; color: #12131a; padding: 24px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .brand img { width: 44px; height: 44px; }
+  .brand .name { font-size: 20px; font-weight: bold; color: #1541e7; }
   .period { color: #6b7080; margin-bottom: 20px; }
   .cards { display: flex; gap: 12px; margin-bottom: 24px; }
   .card { flex: 1; border: 1px solid #e2e4ec; border-radius: 10px; padding: 12px; }
@@ -127,6 +132,11 @@ export function buildReportHtml(input: ReportInput): string {
 </style>
 </head>
 <body>
+  ${
+    input.logoDataUri
+      ? `<div class="brand"><img src="${escapeHtml(input.logoDataUri)}" alt="Kashio" /><span class="name">Kashio</span></div>`
+      : ''
+  }
   <h1>${escapeHtml(labels.title)}</h1>
   <div class="period">${escapeHtml(labels.period)}: ${escapeHtml(input.periodText)}</div>
   <div class="cards">

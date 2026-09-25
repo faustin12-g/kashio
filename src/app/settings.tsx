@@ -15,6 +15,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
 import { countTransactions } from '../repositories/transactionsRepository';
 import { authenticateOwner, isAppLockAvailable } from '../services/appLock';
+import { LOCK_TIMEOUT_OPTIONS } from '../services/lockRules';
+import { useRecurringStore } from '../store/recurringStore';
 import { registerAutoBackupTask, unregisterAutoBackupTask } from '../services/autoBackup';
 import { syncDailyReminder } from '../services/reminders';
 
@@ -52,6 +54,8 @@ export default function SettingsScreen() {
     // Scheduled reminder text is fixed when it is scheduled, so redo it in the new language.
     const state = useSettingsStore.getState();
     await syncDailyReminder(state.reminderEnabled, state.reminderTime).catch(() => undefined);
+    // Same for recurring-item reminders.
+    await useRecurringStore.getState().load(db);
   };
 
   // ---------- app lock ----------
@@ -164,6 +168,19 @@ export default function SettingsScreen() {
     { value: 'rw', label: LANGUAGE_NAMES.rw },
   ];
 
+  const lockTimeoutLabel = (ms: number) =>
+    ms === 0
+      ? t('set.lockNow')
+      : ms === 30_000
+        ? t('set.lock30s')
+        : ms === 60_000
+          ? t('set.lock1m')
+          : ms === 5 * 60_000
+            ? t('set.lock5m')
+            : ms === 15 * 60_000
+              ? t('set.lock15m')
+              : t('set.lock1h');
+
   const themeLabel = (mode: ThemeMode) =>
     mode === 'system' ? t('set.themePhone') : mode === 'light' ? t('set.themeLight') : t('set.themeDark');
 
@@ -228,6 +245,17 @@ export default function SettingsScreen() {
             trackColor={{ true: theme.primary, false: theme.surfaceAlt }}
           />
         </View>
+        {settings.appLockEnabled && (
+          <View style={{ gap: 8 }}>
+            <Text style={{ color: theme.text, fontWeight: '600' }}>{t('set.lockAfter')}</Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('set.lockAfterHint')}</Text>
+            <ChipGroup
+              options={LOCK_TIMEOUT_OPTIONS.map((ms) => ({ value: String(ms), label: lockTimeoutLabel(ms) }))}
+              value={String(settings.lockTimeoutMs)}
+              onChange={(value) => settings.setLockTimeout(db, Number(value))}
+            />
+          </View>
+        )}
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>

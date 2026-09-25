@@ -7,10 +7,12 @@ interface ScreenProps {
   children: React.ReactNode;
   scroll?: boolean;
   contentStyle?: ViewStyle;
+  /** Drawn on top of the screen and fixed in place, so it does not scroll with the content (e.g. a floating button). */
+  overlay?: React.ReactNode;
 }
 
 /** Common screen chrome: theme background, safe-area insets, optional scrolling. */
-export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
+export function Screen({ children, scroll = true, contentStyle, overlay }: ScreenProps) {
   const theme = useTheme();
   const Container = scroll ? ScrollView : View;
 
@@ -23,6 +25,7 @@ export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
       >
         {scroll ? children : <View style={[styles.content, styles.flex, contentStyle]}>{children}</View>}
       </Container>
+      {overlay}
     </SafeAreaView>
   );
 }

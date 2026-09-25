@@ -57,7 +57,8 @@ export function CategoryFormModal({
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), icon, color, type });
+      // The locked type wins: the modal stays mounted while the tab behind it changes.
+      await onSubmit({ name: name.trim(), icon, color, type: lockedType ?? type });
       reset();
       onClose();
     } finally {

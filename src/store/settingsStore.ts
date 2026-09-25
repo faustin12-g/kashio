@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getMeta, setMeta, META_KEYS } from '../repositories/metaRepository';
 import { DEFAULT_THEME_MODE, parseThemeMode, type ThemeMode } from '../constants/themeMode';
+import { parseLockTimeout, RELOCK_AFTER_MS } from '../services/lockRules';
 import { DEFAULT_LANGUAGE_SETTING, parseLanguageSetting, type LanguageSetting } from '../i18n';
 
 export const DEFAULT_CURRENCY = 'USD';
@@ -35,6 +36,8 @@ interface SettingsState {
   reminderEnabled: boolean;
   reminderTime: string;
   appLockEnabled: boolean;
+  /** How long the app may stay in the background before it locks again, in milliseconds. */
+  lockTimeoutMs: number;
   autoBackupEnabled: boolean;
   autoBackupWifiOnly: boolean;
   onboardingDone: boolean;
@@ -45,6 +48,7 @@ interface SettingsState {
   setLanguage: (db: SQLiteDatabase, language: LanguageSetting) => Promise<void>;
   setReminder: (db: SQLiteDatabase, enabled: boolean, time: string) => Promise<void>;
   setAppLockEnabled: (db: SQLiteDatabase, enabled: boolean) => Promise<void>;
+  setLockTimeout: (db: SQLiteDatabase, timeoutMs: number) => Promise<void>;
   setAutoBackup: (db: SQLiteDatabase, enabled: boolean, wifiOnly: boolean) => Promise<void>;
   completeOnboarding: (db: SQLiteDatabase) => Promise<void>;
 }
@@ -58,13 +62,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   reminderEnabled: false,
   reminderTime: DEFAULT_REMINDER_TIME,
   appLockEnabled: false,
+  lockTimeoutMs: RELOCK_AFTER_MS,
   autoBackupEnabled: false,
   autoBackupWifiOnly: true,
   onboardingDone: false,
   isLoaded: false,
 
   load: async (db) => {
-    const [currency, theme, language, reminderOn, reminderTime, lock, autoOn, autoWifi, onboarding] =
+    const [currency, theme, language, reminderOn, reminderTime, lock, lockTimeout, autoOn, autoWifi, onboarding] =
       await Promise.all([
         getMeta(db, META_KEYS.currency),
         getMeta(db, META_KEYS.themeMode),
@@ -72,6 +77,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         getMeta(db, META_KEYS.reminderEnabled),
         getMeta(db, META_KEYS.reminderTime),
         getMeta(db, META_KEYS.appLockEnabled),
+        getMeta(db, META_KEYS.lockTimeout),
         getMeta(db, META_KEYS.autoBackupEnabled),
         getMeta(db, META_KEYS.autoBackupWifiOnly),
         getMeta(db, META_KEYS.onboardingDone),
@@ -85,6 +91,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       reminderEnabled: parseFlag(reminderOn, false),
       reminderTime: parseReminderTime(reminderTime),
       appLockEnabled: parseFlag(lock, false),
+      lockTimeoutMs: parseLockTimeout(lockTimeout),
       autoBackupEnabled: parseFlag(autoOn, false),
       autoBackupWifiOnly: parseFlag(autoWifi, true),
       onboardingDone: parseFlag(onboarding, false),
@@ -117,6 +124,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAppLockEnabled: async (db, enabled) => {
     set({ appLockEnabled: enabled });
     await setMeta(db, META_KEYS.appLockEnabled, flag(enabled));
+  },
+
+  setLockTimeout: async (db, timeoutMs) => {
+    set({ lockTimeoutMs: timeoutMs });
+    await setMeta(db, META_KEYS.lockTimeout, String(timeoutMs));
   },
 
   setAutoBackup: async (db, enabled, wifiOnly) => {

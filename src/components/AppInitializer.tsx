@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useFonts } from 'expo-font';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useAccountsStore } from '../store/accountsStore';
 import { useCategoriesStore } from '../store/categoriesStore';
 import { useRecurringStore } from '../store/recurringStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
+import { FONT_FILES } from '../constants/fonts';
 import { useTheme } from '../constants/theme';
 import { countTransactions } from '../repositories/transactionsRepository';
 import { registerAutoBackupTask, runAutoBackupIfDue } from '../services/autoBackup';
@@ -17,15 +19,18 @@ import { Logo } from './Logo';
  * Runs once, after the database connection is ready: loads categories and
  * settings so every screen has them immediately, restores a previous Google
  * sign-in (no UI shown), and does the housekeeping that has to happen on each
- * start: adding recurring transactions that came due, re-arming the daily
- * reminder, and catching up on an automatic backup. Renders nothing itself
+ * start: loading recurring items (and re-arming their reminders), re-arming
+ * the daily reminder, and catching up on an automatic backup. Renders nothing itself
  * until the essentials are loaded, so screens never see empty store state on
  * first paint.
  */
 export function AppInitializer({ children }: { children: React.ReactNode }) {
   const db = useSQLiteContext();
   const theme = useTheme();
-  const [ready, setReady] = useState(false);
+  const [started, setStarted] = useState(false);
+  // Fonts are decoration: if they fail to load the system font is used and the app starts anyway.
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  const ready = started && (fontsLoaded || fontError !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,13 +49,13 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         await settings.completeOnboarding(db);
       }
 
-      await Promise.all([useAccountsStore.getState().load(db), useRecurringStore.getState().generateDue(db)]);
+      await Promise.all([useAccountsStore.getState().load(db), useRecurringStore.getState().load(db)]);
     }
 
     start()
       .catch((error) => console.warn('App startup task failed', error))
       .finally(() => {
-        if (!cancelled) setReady(true);
+        if (!cancelled) setStarted(true);
       });
 
     return () => {

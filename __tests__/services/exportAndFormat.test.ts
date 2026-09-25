@@ -106,6 +106,12 @@ describe('buildReportHtml', () => {
     expect(buildReportHtml({ ...input, rows: [] })).toContain('Nothing here');
   });
 
+  it('shows the logo in the header only when one is given', () => {
+    const withLogo = buildReportHtml({ ...input, rows: [], logoDataUri: 'data:image/png;base64,AAAA' });
+    expect(withLogo).toContain('<img src="data:image/png;base64,AAAA"');
+    expect(buildReportHtml({ ...input, rows: [] })).not.toContain('<img');
+  });
+
   it('cannot be broken by hostile text in a note', () => {
     const html = buildReportHtml({ ...input, rows: [row({ note: '<img src=x onerror=alert(1)>' })] });
     expect(html).not.toContain('<img src=x');

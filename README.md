@@ -23,8 +23,8 @@ another device.
   transfers between them.
 - **Savings goals** and **Debts** — track progress towards a target, and
   money lent or borrowed with due dates and payments.
-- **Recurring transactions** — rent, salary and subscriptions are recorded
-  automatically when due.
+- **Recurring items** — rent, salary and subscriptions remind you when they
+  are due. Nothing touches your balance until you tap Record.
 - **Daily reminder**, **app lock** (fingerprint, face, PIN or pattern),
   **light / dark / phone theme**.
 - **Languages** — English, Français and Kinyarwanda.

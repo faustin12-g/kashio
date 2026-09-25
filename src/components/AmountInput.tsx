@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../constants/theme';
+import { formatAmountForInput, sanitizeAmountInput } from '../utils/money';
 
 interface AmountInputProps {
   value: string;
@@ -17,8 +18,8 @@ export function AmountInput({ value, onChangeText, currency, autoFocus }: Amount
     <View style={styles.row}>
       <Text style={[styles.currency, { color: theme.textMuted }]}>{currency}</Text>
       <TextInput
-        value={value}
-        onChangeText={(text) => onChangeText(text.replace(/[^0-9.,]/g, ''))}
+        value={formatAmountForInput(value)}
+        onChangeText={(text) => onChangeText(sanitizeAmountInput(text, value))}
         keyboardType="decimal-pad"
         placeholder="0.00"
         placeholderTextColor={theme.textMuted}

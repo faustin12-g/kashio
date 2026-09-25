@@ -36,6 +36,8 @@ export interface Transaction {
   categoryId: string | null; // null = uncategorized
   note: string;
   date: string; // ISO 8601 date (yyyy-MM-dd), the date the spend happened
+  accountId: string | null; // which account the money moved in, if the user tracks accounts
+  recurringId: string | null; // set when this was created automatically by a recurring rule
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null; // soft delete, kept for sync tombstones
@@ -43,8 +45,11 @@ export interface Transaction {
 
 export type NewTransaction = Omit<
   Transaction,
-  'id' | 'createdAt' | 'updatedAt' | 'deletedAt'
->;
+  'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'accountId' | 'recurringId'
+> & {
+  accountId?: string | null;
+  recurringId?: string | null;
+};
 
 /** A recurring spending limit, either overall or per category. */
 export interface Budget {
@@ -89,12 +94,143 @@ export interface SyncState {
   lastError: string | null;
 }
 
+export type AccountType = 'cash' | 'bank' | 'mobile_money' | 'savings' | 'other';
+
+/** A place money is kept: a wallet, a bank account, a mobile money account. */
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  icon: string; // icon name
+  color: string;
+  openingBalanceMinor: number; // what it held when the user started tracking it; may be negative
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewAccount = Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isArchived'> & {
+  isArchived?: boolean;
+};
+
+/** Money moved between two of the user's own accounts. Not income and not spending. */
+export interface Transfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amountMinor: number;
+  note: string;
+  date: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewTransfer = Omit<Transfer, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+/** A savings target, e.g. "New phone". */
+export interface Goal {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  targetMinor: number;
+  deadline: string | null; // ISO date, optional
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewGoal = Omit<Goal, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+/** Money put towards a goal. Negative when money is taken back out. */
+export interface GoalContribution {
+  id: string;
+  goalId: string;
+  amountMinor: number;
+  date: string;
+  note: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewGoalContribution = Omit<GoalContribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+export type DebtDirection = 'owed_to_me' | 'i_owe';
+
+/** Money someone owes the user, or the user owes someone. */
+export interface Debt {
+  id: string;
+  person: string;
+  direction: DebtDirection;
+  amountMinor: number;
+  note: string;
+  date: string; // when it was lent or borrowed
+  dueDate: string | null;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewDebt = Omit<Debt, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+/** A repayment made against a debt. */
+export interface DebtPayment {
+  id: string;
+  debtId: string;
+  amountMinor: number;
+  date: string;
+  note: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewDebtPayment = Omit<DebtPayment, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/** A rule that adds the same transaction on a schedule, e.g. rent on the 1st. */
+export interface Recurring {
+  id: string;
+  type: EntryType;
+  amountMinor: number;
+  categoryId: string | null;
+  accountId: string | null;
+  note: string;
+  frequency: RecurringFrequency;
+  startDate: string; // the first occurrence; later ones are counted from here
+  endDate: string | null;
+  generatedCount: number; // how many occurrences have already been turned into transactions
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export type NewRecurring = Omit<
+  Recurring,
+  'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'generatedCount' | 'isActive'
+> & { isActive?: boolean };
+
 /** Shape of the JSON file written to the user's Google Drive. */
 export interface BackupPayload {
   schemaVersion: number;
   exportedAt: string; // ISO timestamp
   deviceName: string;
+  /** The currency amounts are shown in. Added in schema 2. */
+  currency?: string;
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
+  // Added in schema 2. Older backups simply do not have them.
+  accounts?: Account[];
+  transfers?: Transfer[];
+  goals?: Goal[];
+  goalContributions?: GoalContribution[];
+  debts?: Debt[];
+  debtPayments?: DebtPayment[];
+  recurring?: Recurring[];
 }

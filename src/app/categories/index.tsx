@@ -1,18 +1,23 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { Stack, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { CategoryFormModal } from '../../components/CategoryFormModal';
 import { useTheme, spacing } from '../../constants/theme';
+import { resolveCategoryIcon } from '../../constants/categoryIcons';
+import { Icon } from '../../components/Icon';
+import { categoryDisplayName } from '../../i18n';
+import { useTranslation } from '../../i18n/useTranslation';
 import { useCategoriesStore } from '../../store/categoriesStore';
 import type { EntryType } from '../../models/types';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
   const db = useSQLiteContext();
+  const { t } = useTranslation();
   const categories = useCategoriesStore((state) => state.categories);
   const load = useCategoriesStore((state) => state.load);
   const create = useCategoriesStore((state) => state.create);
@@ -34,6 +39,7 @@ export default function CategoriesScreen() {
 
   return (
     <Screen scroll={false}>
+      <Stack.Screen options={{ title: t('more.categories') }} />
       <View style={styles.tabs}>
         {(['expense', 'income'] as const).map((option) => {
           const selected = option === tab;
@@ -44,7 +50,7 @@ export default function CategoriesScreen() {
               style={[styles.tab, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
             >
               <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
-                {option === 'expense' ? 'Expense' : 'Income'}
+                {option === 'expense' ? t('cat.expenseTab') : t('cat.incomeTab')}
               </Text>
             </Pressable>
           );
@@ -59,19 +65,19 @@ export default function CategoriesScreen() {
         renderItem={({ item }) => (
           <View style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={[styles.iconWrap, { backgroundColor: item.color + '22' }]}>
-              <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+              <Icon name={resolveCategoryIcon(item.icon)} size={20} color={item.color} />
             </View>
-            <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
+            <Text style={[styles.name, { color: theme.text }]}>{categoryDisplayName(item.name, t)}</Text>
             <Pressable onPress={() => archive(db, item.id)} hitSlop={8}>
-              <Text style={{ color: theme.textMuted, fontSize: 13 }}>Archive</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 13 }}>{t('common.archive')}</Text>
             </Pressable>
           </View>
         )}
-        ListEmptyComponent={<EmptyState icon="🏷️" title="No categories in this list" message="Add one below." />}
+        ListEmptyComponent={<EmptyState icon="tag-outline" title={t('cat.empty')} message={t('cat.emptyHint')} />}
       />
 
       <View style={styles.footer}>
-        <Button label="Add category" onPress={() => setModalVisible(true)} />
+        <Button label={t('cat.add')} onPress={() => setModalVisible(true)} />
       </View>
 
       <CategoryFormModal

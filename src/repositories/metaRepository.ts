@@ -20,6 +20,14 @@ export async function deleteMeta(db: SQLiteDatabase, key: string): Promise<void>
 
 export const META_KEYS = {
   currency: 'default_currency',
+  themeMode: 'theme_mode',
+  language: 'language',
+  reminderEnabled: 'reminder_enabled',
+  reminderTime: 'reminder_time',
+  appLockEnabled: 'app_lock_enabled',
+  autoBackupEnabled: 'auto_backup_enabled',
+  autoBackupWifiOnly: 'auto_backup_wifi_only',
+  onboardingDone: 'onboarding_done',
   driveFileId: 'drive_backup_file_id',
   driveFolderId: 'drive_backup_folder_id',
   lastBackupAt: 'last_backup_at',

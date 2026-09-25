@@ -1,18 +1,21 @@
 import React from 'react';
-import { Text } from 'react-native';
 import { Tabs } from 'expo-router';
 import { BrandTitle } from '../../components/Logo';
+import { Icon, type IconName } from '../../components/Icon';
 import { useTheme } from '../../constants/theme';
+import { useTranslation } from '../../i18n/useTranslation';
 
-const ICONS: Record<string, string> = {
-  index: '🏠',
-  transactions: '💳',
-  budgets: '🎯',
-  settings: '⚙️',
+const TAB_ICONS: Record<string, IconName> = {
+  index: 'home-outline',
+  transactions: 'credit-card-outline',
+  budgets: 'bullseye-arrow',
+  insights: 'chart-line',
+  more: 'dots-horizontal-circle-outline',
 };
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Tabs
@@ -23,13 +26,15 @@ export default function TabsLayout() {
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border },
-        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{ICONS[route.name] ?? '•'}</Text>,
+        tabBarLabelStyle: { fontSize: 11 },
+        tabBarIcon: ({ color, size }) => <Icon name={TAB_ICONS[route.name] ?? 'circle-small'} size={size} color={color} />,
       })}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home', headerTitle: () => <BrandTitle /> }} />
-      <Tabs.Screen name="transactions" options={{ title: 'Transactions' }} />
-      <Tabs.Screen name="budgets" options={{ title: 'Budgets' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="index" options={{ title: t('tabs.home'), headerTitle: () => <BrandTitle /> }} />
+      <Tabs.Screen name="transactions" options={{ title: t('tabs.transactions') }} />
+      <Tabs.Screen name="budgets" options={{ title: t('tabs.budgets') }} />
+      <Tabs.Screen name="insights" options={{ title: t('tabs.insights') }} />
+      <Tabs.Screen name="more" options={{ title: t('tabs.more') }} />
     </Tabs>
   );
 }

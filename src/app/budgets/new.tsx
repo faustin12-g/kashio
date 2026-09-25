@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { AmountInput } from '../../components/AmountInput';
-import { CategoryPicker } from '../../components/CategoryPicker';
+import { CategorySelect } from '../../components/CategorySelect';
 import { useTheme, spacing } from '../../constants/theme';
-import { useCategoriesStore, selectActiveCategories } from '../../store/categoriesStore';
+import { useTranslation } from '../../i18n/useTranslation';
+import { useActiveCategories } from '../../store/categoriesStore';
 import { useBudgetsStore } from '../../store/budgetsStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { parseAmountToMinor } from '../../utils/money';
@@ -18,7 +19,12 @@ export default function NewBudgetScreen() {
   const theme = useTheme();
   const router = useRouter();
   const db = useSQLiteContext();
-  const categories = useCategoriesStore(selectActiveCategories).filter((category) => category.type === 'expense');
+  const { t } = useTranslation();
+  const activeCategories = useActiveCategories();
+  const categories = useMemo(
+    () => activeCategories.filter((category) => category.type === 'expense'),
+    [activeCategories]
+  );
   const createBudget = useBudgetsStore((state) => state.create);
   const currency = useSettingsStore((state) => state.currency);
 
@@ -31,7 +37,7 @@ export default function NewBudgetScreen() {
   const handleSave = async () => {
     const amountLimitMinor = parseAmountToMinor(amountText);
     if (!Number.isFinite(amountLimitMinor) || amountLimitMinor <= 0) {
-      setError('Enter a valid limit greater than zero.');
+      setError(t('bud.limitError'));
       return;
     }
     setError(null);
@@ -46,7 +52,7 @@ export default function NewBudgetScreen() {
       });
       router.back();
     } catch {
-      setError('Could not save the budget. Please try again.');
+      setError(t('bud.saveError'));
     } finally {
       setSaving(false);
     }
@@ -54,19 +60,16 @@ export default function NewBudgetScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: t('bud.new') }} />
       <View style={{ gap: spacing.sm }}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>Applies to</Text>
-        <View style={styles.applyRow}>
-          <Pressable
-            onPress={() => setCategoryId(null)}
-            style={[styles.overallChip, { backgroundColor: categoryId === null ? theme.primary : theme.surfaceAlt }]}
-          >
-            <Text style={{ color: categoryId === null ? theme.primaryText : theme.text, fontWeight: '600' }}>
-              Overall spending
-            </Text>
-          </Pressable>
-        </View>
-        <CategoryPicker categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+        <Text style={[styles.label, { color: theme.textMuted }]}>{t('bud.appliesTo')}</Text>
+        <CategorySelect
+          categories={categories}
+          selectedId={categoryId}
+          onSelect={setCategoryId}
+          type="expense"
+          noneLabel={t('bud.overall')}
+        />
       </View>
 
       <View style={styles.amountWrap}>
@@ -74,7 +77,7 @@ export default function NewBudgetScreen() {
       </View>
 
       <View style={{ gap: spacing.sm }}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>Resets</Text>
+        <Text style={[styles.label, { color: theme.textMuted }]}>{t('bud.resets')}</Text>
         <View style={styles.typeSwitch}>
           {(['weekly', 'monthly'] as const).map((option) => {
             const selected = option === period;
@@ -85,7 +88,7 @@ export default function NewBudgetScreen() {
                 style={[styles.typeButton, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
               >
                 <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
-                  {option === 'weekly' ? 'Weekly' : 'Monthly'}
+                  {option === 'weekly' ? t('bud.weekly') : t('bud.monthly')}
                 </Text>
               </Pressable>
             );
@@ -95,15 +98,13 @@ export default function NewBudgetScreen() {
 
       {error && <Text style={{ color: theme.danger }}>{error}</Text>}
 
-      <Button label="Save budget" onPress={handleSave} loading={saving} />
+      <Button label={t('bud.save')} onPress={handleSave} loading={saving} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  applyRow: { flexDirection: 'row' },
-  overallChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, alignSelf: 'flex-start' },
   amountWrap: { alignItems: 'center', paddingVertical: spacing.lg },
   typeSwitch: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },

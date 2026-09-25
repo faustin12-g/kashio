@@ -28,7 +28,7 @@ export function BrandTitle() {
   return (
     <View style={styles.row}>
       <Logo size={26} />
-      <Text style={[styles.name, { color: theme.text }]}>Buget</Text>
+      <Text style={[styles.name, { color: theme.text }]}>Kashio</Text>
     </View>
   );
 }

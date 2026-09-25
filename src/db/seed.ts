@@ -3,16 +3,16 @@ import { generateId } from '../utils/id';
 import type { Category } from '../models/types';
 
 const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>[] = [
-  { name: 'Groceries', icon: '🛒', color: '#22C55E', type: 'expense' },
-  { name: 'Transport', icon: '🚌', color: '#3B82F6', type: 'expense' },
-  { name: 'Rent', icon: '🏠', color: '#F97316', type: 'expense' },
-  { name: 'Utilities', icon: '💡', color: '#EAB308', type: 'expense' },
-  { name: 'Health', icon: '💊', color: '#EF4444', type: 'expense' },
-  { name: 'Entertainment', icon: '🎬', color: '#A855F7', type: 'expense' },
-  { name: 'Eating out', icon: '🍽️', color: '#EC4899', type: 'expense' },
-  { name: 'Other', icon: '📦', color: '#64748B', type: 'expense' },
-  { name: 'Salary', icon: '💰', color: '#10B981', type: 'income' },
-  { name: 'Other income', icon: '➕', color: '#14B8A6', type: 'income' },
+  { name: 'Groceries', icon: 'cart-outline', color: '#22C55E', type: 'expense' },
+  { name: 'Transport', icon: 'bus', color: '#3B82F6', type: 'expense' },
+  { name: 'Rent', icon: 'home-outline', color: '#F97316', type: 'expense' },
+  { name: 'Utilities', icon: 'lightbulb-outline', color: '#EAB308', type: 'expense' },
+  { name: 'Health', icon: 'pill', color: '#EF4444', type: 'expense' },
+  { name: 'Entertainment', icon: 'movie-open-outline', color: '#A855F7', type: 'expense' },
+  { name: 'Eating out', icon: 'silverware-fork-knife', color: '#EC4899', type: 'expense' },
+  { name: 'Other', icon: 'package-variant-closed', color: '#64748B', type: 'expense' },
+  { name: 'Salary', icon: 'cash', color: '#10B981', type: 'income' },
+  { name: 'Other income', icon: 'plus-circle-outline', color: '#14B8A6', type: 'income' },
 ];
 
 /**

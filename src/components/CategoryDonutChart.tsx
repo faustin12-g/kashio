@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useTheme } from '../constants/theme';
-import { formatMoney } from '../utils/money';
+import { useMoney } from '../hooks/useMoney';
+import { useTranslation } from '../i18n/useTranslation';
 
 export interface DonutSegment {
   id: string;
@@ -13,7 +14,6 @@ export interface DonutSegment {
 
 interface CategoryDonutChartProps {
   segments: DonutSegment[];
-  currency: string;
   size?: number;
   strokeWidth?: number;
 }
@@ -23,8 +23,10 @@ interface CategoryDonutChartProps {
  * segment) rather than hand-computed arc paths — same visual result, far
  * less trigonometry to get wrong.
  */
-export function CategoryDonutChart({ segments, currency, size = 180, strokeWidth = 22 }: CategoryDonutChartProps) {
+export function CategoryDonutChart({ segments, size = 180, strokeWidth = 22 }: CategoryDonutChartProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const money = useMoney();
   const total = segments.reduce((sum, segment) => sum + segment.valueMinor, 0);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -33,7 +35,7 @@ export function CategoryDonutChart({ segments, currency, size = 180, strokeWidth
   if (total <= 0) {
     return (
       <View style={[styles.emptyWrap, { width: size, height: size }]}>
-        <Text style={{ color: theme.textMuted, textAlign: 'center' }}>No spending yet this period</Text>
+        <Text style={{ color: theme.textMuted, textAlign: 'center' }}>{t('home.noSpending')}</Text>
       </View>
     );
   }
@@ -85,8 +87,8 @@ export function CategoryDonutChart({ segments, currency, size = 180, strokeWidth
         </G>
       </Svg>
       <View style={styles.centerLabel} pointerEvents="none">
-        <Text style={[styles.centerValue, { color: theme.text }]}>{formatMoney(total, currency)}</Text>
-        <Text style={[styles.centerCaption, { color: theme.textMuted }]}>total</Text>
+        <Text style={[styles.centerValue, { color: theme.text }]}>{money(total)}</Text>
+        <Text style={[styles.centerCaption, { color: theme.textMuted }]}>{t('home.total')}</Text>
       </View>
     </View>
   );

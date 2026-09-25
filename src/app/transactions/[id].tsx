@@ -1,14 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { AmountInput } from '../../components/AmountInput';
-import { CategoryPicker } from '../../components/CategoryPicker';
+import { CategorySelect } from '../../components/CategorySelect';
 import { DateField } from '../../components/DateField';
+import type { IconName } from '../../components/Icon';
+import { OptionField } from '../../components/OptionField';
+import { SegmentedControl } from '../../components/SegmentedControl';
+import { TextField } from '../../components/TextField';
 import { useTheme, spacing } from '../../constants/theme';
-import { useCategoriesStore, selectActiveCategories } from '../../store/categoriesStore';
+import { useTranslation } from '../../i18n/useTranslation';
+import { useAccountsStore } from '../../store/accountsStore';
+import { useActiveCategories } from '../../store/categoriesStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { useTransactionsStore } from '../../store/transactionsStore';
 import { getTransaction } from '../../repositories/transactionsRepository';
 import { minorToInputString, parseAmountToMinor } from '../../utils/money';
@@ -19,7 +26,10 @@ export default function EditTransactionScreen() {
   const theme = useTheme();
   const router = useRouter();
   const db = useSQLiteContext();
-  const categories = useCategoriesStore(selectActiveCategories);
+  const { t } = useTranslation();
+  const categories = useActiveCategories();
+  const accounts = useAccountsStore((state) => state.accounts);
+  const currency = useSettingsStore((state) => state.currency);
   const updateTransaction = useTransactionsStore((state) => state.update);
   const removeTransaction = useTransactionsStore((state) => state.remove);
 
@@ -28,6 +38,7 @@ export default function EditTransactionScreen() {
   const [type, setType] = useState<EntryType>('expense');
   const [amountText, setAmountText] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [dateIso, setDateIso] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +52,7 @@ export default function EditTransactionScreen() {
       setType(transaction.type);
       setAmountText(minorToInputString(transaction.amountMinor));
       setCategoryId(transaction.categoryId);
+      setAccountId(transaction.accountId);
       setNote(transaction.note);
       setDateIso(transaction.date);
       setLoading(false);
@@ -51,11 +63,12 @@ export default function EditTransactionScreen() {
   }, [db, id]);
 
   const categoriesForType = useMemo(() => categories.filter((category) => category.type === type), [categories, type]);
+  const validAccountId = accounts.some((account) => account.id === accountId) ? accountId : null;
 
   const handleSave = async () => {
     const amountMinor = parseAmountToMinor(amountText);
     if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-      setError('Enter a valid amount greater than zero.');
+      setError(t('form.amountError'));
       return;
     }
     setError(null);
@@ -65,22 +78,23 @@ export default function EditTransactionScreen() {
         amountMinor,
         type,
         categoryId,
+        accountId: validAccountId,
         note: note.trim(),
         date: dateIso,
       });
       router.back();
     } catch {
-      setError('Could not save the changes. Please try again.');
+      setError(t('form.saveError'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete transaction?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('form.deleteTitle'), t('form.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           await removeTransaction(db, id);
@@ -93,69 +107,72 @@ export default function EditTransactionScreen() {
   if (loading || !original) {
     return (
       <Screen>
-        <Text style={{ color: theme.textMuted }}>Loading…</Text>
+        <Stack.Screen options={{ title: t('form.editTransaction') }} />
+        <Text style={{ color: theme.textMuted }}>{t('common.loading')}</Text>
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <View style={styles.typeSwitch}>
-        {(['expense', 'income'] as const).map((option) => {
-          const selected = option === type;
-          return (
-            <Pressable
-              key={option}
-              onPress={() => {
-                setType(option);
-                setCategoryId(null);
-              }}
-              style={[styles.typeButton, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
-            >
-              <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
-                {option === 'expense' ? 'Expense' : 'Income'}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <Stack.Screen options={{ title: t('form.editTransaction') }} />
+
+      <SegmentedControl
+        value={type}
+        onChange={(next) => {
+          setType(next);
+          setCategoryId(null);
+        }}
+        options={[
+          { value: 'expense', label: t('form.expense'), icon: 'arrow-up-circle-outline' },
+          { value: 'income', label: t('form.income'), icon: 'arrow-down-circle-outline' },
+        ]}
+      />
 
       <View style={styles.amountWrap}>
-        <AmountInput value={amountText} onChangeText={setAmountText} currency={original.currency} />
+        <AmountInput value={amountText} onChangeText={setAmountText} currency={currency} />
       </View>
 
       <View style={{ gap: spacing.sm }}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>Category</Text>
-        <CategoryPicker categories={categoriesForType} selectedId={categoryId} onSelect={setCategoryId} />
-      </View>
-
-      <View style={{ gap: spacing.sm }}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>Date</Text>
-        <DateField valueIso={dateIso} onChange={setDateIso} />
-      </View>
-
-      <View style={{ gap: spacing.sm }}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>Note (optional)</Text>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          placeholderTextColor={theme.textMuted}
-          style={[styles.noteInput, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+        <Text style={[styles.label, { color: theme.textMuted }]}>{t('form.category')}</Text>
+        <CategorySelect
+          categories={categoriesForType}
+          selectedId={categoryId}
+          onSelect={setCategoryId}
+          type={type}
         />
       </View>
 
+      {accounts.length > 0 && (
+        <OptionField
+          label={t('form.account')}
+          title={t('acc.selectAccount')}
+          placeholder={t('form.noAccount')}
+          noneLabel={t('form.noAccount')}
+          value={validAccountId}
+          onChange={setAccountId}
+          options={accounts.map((account) => ({
+            id: account.id,
+            label: account.name,
+            icon: account.icon as IconName,
+            color: account.color,
+          }))}
+        />
+      )}
+
+      <DateField label={t('form.date')} valueIso={dateIso} onChange={setDateIso} />
+
+      <TextField label={t('form.note')} value={note} onChangeText={setNote} placeholder={t('form.notePlaceholder')} />
+
       {error && <Text style={{ color: theme.danger }}>{error}</Text>}
 
-      <Button label="Save changes" onPress={handleSave} loading={saving} />
-      <Button label="Delete transaction" onPress={handleDelete} variant="danger" />
+      <Button label={t('form.saveChanges')} onPress={handleSave} loading={saving} />
+      <Button label={t('form.delete')} onPress={handleDelete} variant="danger" />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  typeSwitch: { flexDirection: 'row', gap: 8 },
-  typeButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   amountWrap: { alignItems: 'center', paddingVertical: spacing.lg },
   label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  noteInput: { borderRadius: 12, borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14, fontSize: 15 },
 });

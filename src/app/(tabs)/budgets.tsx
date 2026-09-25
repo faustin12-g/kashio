@@ -1,19 +1,20 @@
 import React, { useCallback, useMemo } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { BudgetProgressCard } from '../../components/BudgetProgressCard';
 import { EmptyState } from '../../components/EmptyState';
 import { spacing } from '../../constants/theme';
+import { useTranslation } from '../../i18n/useTranslation';
 import { useBudgetsStore } from '../../store/budgetsStore';
 import { useCategoriesStore } from '../../store/categoriesStore';
 
 export default function BudgetsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
+  const { t } = useTranslation();
   const progress = useBudgetsStore((state) => state.progress);
   const load = useBudgetsStore((state) => state.load);
   const remove = useBudgetsStore((state) => state.remove);
@@ -28,9 +29,9 @@ export default function BudgetsScreen() {
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
 
   const handleLongPress = (id: string) => {
-    Alert.alert('Delete budget?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => remove(db, id) },
+    Alert.alert(t('bud.deleteTitle'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => remove(db, id) },
     ]);
   };
 
@@ -50,11 +51,11 @@ export default function BudgetsScreen() {
           </Pressable>
         )}
         ListEmptyComponent={
-          <EmptyState icon="🎯" title="No budgets yet" message="Set a spending limit to start tracking against it." />
+          <EmptyState icon="bullseye-arrow" title={t('bud.empty')} message={t('bud.emptyHint')} />
         }
       />
       <View style={styles.footer}>
-        <Button label="New budget" onPress={() => router.push('/budgets/new')} />
+        <Button label={t('bud.new')} onPress={() => router.push('/budgets/new')} />
       </View>
     </Screen>
   );

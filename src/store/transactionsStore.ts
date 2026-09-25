@@ -3,6 +3,9 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { NewTransaction, Transaction } from '../models/types';
 import * as transactionsRepository from '../repositories/transactionsRepository';
 import type { TransactionFilter } from '../repositories/transactionsRepository';
+import { checkBudgetAlerts } from '../services/budgetAlertRunner';
+import { useAccountsStore } from './accountsStore';
+import { useCategoriesStore } from './categoriesStore';
 
 interface TransactionsState {
   transactions: Transaction[];
@@ -27,15 +30,22 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
   create: async (db, input) => {
     await transactionsRepository.createTransaction(db, input);
     await get().load(db);
+    void useAccountsStore.getState().load(db);
+    void useCategoriesStore.getState().load(db);
+    void checkBudgetAlerts(db);
   },
 
   update: async (db, id, changes) => {
     await transactionsRepository.updateTransaction(db, id, changes);
     await get().load(db);
+    void useAccountsStore.getState().load(db);
+    void checkBudgetAlerts(db);
   },
 
   remove: async (db, id) => {
     await transactionsRepository.deleteTransaction(db, id);
     await get().load(db);
+    void useAccountsStore.getState().load(db);
+    void checkBudgetAlerts(db);
   },
 }));

@@ -5,7 +5,7 @@ import { Logo } from '../components/Logo';
 import { runMigrations } from './migrations';
 import { seedDefaultCategories } from './seed';
 
-export const DATABASE_NAME = 'buget.db';
+export const DATABASE_NAME = 'kashio.db';
 
 /** Runs on first open of the database connection, before any screen renders. */
 async function initializeDatabase(db: SQLiteDatabase): Promise<void> {

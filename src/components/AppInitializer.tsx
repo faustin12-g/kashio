@@ -1,39 +1,73 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useAccountsStore } from '../store/accountsStore';
 import { useCategoriesStore } from '../store/categoriesStore';
+import { useRecurringStore } from '../store/recurringStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
 import { useTheme } from '../constants/theme';
+import { countTransactions } from '../repositories/transactionsRepository';
+import { registerAutoBackupTask, runAutoBackupIfDue } from '../services/autoBackup';
+import { configureNotifications } from '../services/notifications';
+import { syncDailyReminder } from '../services/reminders';
 import { Logo } from './Logo';
 
 /**
  * Runs once, after the database connection is ready: loads categories and
- * settings so every screen has them immediately, and tries to silently
- * restore a previous Google sign-in (no UI shown, just a background check).
- * Renders nothing itself until that's done, so screens never see empty
- * store state on first paint.
+ * settings so every screen has them immediately, restores a previous Google
+ * sign-in (no UI shown), and does the housekeeping that has to happen on each
+ * start: adding recurring transactions that came due, re-arming the daily
+ * reminder, and catching up on an automatic backup. Renders nothing itself
+ * until the essentials are loaded, so screens never see empty store state on
+ * first paint.
  */
 export function AppInitializer({ children }: { children: React.ReactNode }) {
   const db = useSQLiteContext();
   const theme = useTheme();
   const [ready, setReady] = useState(false);
 
-  const loadCategories = useCategoriesStore((state) => state.load);
-  const loadSettings = useSettingsStore((state) => state.load);
-  const initSync = useSyncStore((state) => state.init);
-
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadCategories(db), loadSettings(db), initSync(db)]).finally(() => {
-      if (!cancelled) setReady(true);
-    });
+
+    async function start() {
+      await Promise.all([
+        useCategoriesStore.getState().load(db),
+        useSettingsStore.getState().load(db),
+        useSyncStore.getState().init(db),
+        configureNotifications(),
+      ]);
+
+      const settings = useSettingsStore.getState();
+      // People updating from an older version already have data: no welcome tour for them.
+      if (!settings.onboardingDone && (await countTransactions(db)) > 0) {
+        await settings.completeOnboarding(db);
+      }
+
+      await Promise.all([useAccountsStore.getState().load(db), useRecurringStore.getState().generateDue(db)]);
+    }
+
+    start()
+      .catch((error) => console.warn('App startup task failed', error))
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+
     return () => {
       cancelled = true;
     };
-    // Intentionally run once per database instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db]);
+
+  // Background housekeeping that must not delay the first screen.
+  useEffect(() => {
+    if (!ready) return;
+    const settings = useSettingsStore.getState();
+    syncDailyReminder(settings.reminderEnabled, settings.reminderTime).catch(() => undefined);
+    if (settings.autoBackupEnabled) {
+      registerAutoBackupTask().catch(() => undefined);
+      void runAutoBackupIfDue(db);
+    }
+  }, [ready, db]);
 
   if (!ready) {
     return (

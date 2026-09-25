@@ -27,6 +27,19 @@ export function parseAmountToMinor(input: string): number {
   return minor;
 }
 
+/**
+ * Like `parseAmountToMinor`, but accepts a leading minus sign, for things that
+ * can legitimately be negative such as an overdrawn account.
+ */
+export function parseSignedAmountToMinor(input: string): number {
+  const trimmed = input.trim();
+  if (trimmed.startsWith('-')) {
+    const magnitude = parseAmountToMinor(trimmed.slice(1));
+    return Number.isNaN(magnitude) ? NaN : magnitude === 0 ? 0 : -magnitude;
+  }
+  return parseAmountToMinor(trimmed);
+}
+
 /** Formats minor units back into a plain decimal string for editing, e.g. 1250 -> "12.50". */
 export function minorToInputString(minor: number): string {
   return (minor / 100).toFixed(2);

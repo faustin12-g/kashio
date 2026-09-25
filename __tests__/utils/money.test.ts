@@ -1,4 +1,10 @@
-import { formatMoney, formatSignedMoney, minorToInputString, parseAmountToMinor } from '../../src/utils/money';
+import {
+  formatMoney,
+  formatSignedMoney,
+  minorToInputString,
+  parseAmountToMinor,
+  parseSignedAmountToMinor,
+} from '../../src/utils/money';
 
 describe('parseAmountToMinor', () => {
   it('converts a plain decimal string to integer minor units', () => {
@@ -55,5 +61,25 @@ describe('formatSignedMoney', () => {
 
   it('prefixes income with a plus sign', () => {
     expect(formatSignedMoney(500, 'USD', 'income')).toMatch(/^\+/);
+  });
+});
+
+describe('parseSignedAmountToMinor', () => {
+  it('reads positive amounts like the normal parser', () => {
+    expect(parseSignedAmountToMinor('12.50')).toBe(1250);
+  });
+
+  it('reads a negative amount', () => {
+    expect(parseSignedAmountToMinor('-12.50')).toBe(-1250);
+  });
+
+  it('treats minus zero as plain zero', () => {
+    expect(Object.is(parseSignedAmountToMinor('-0'), 0)).toBe(true);
+  });
+
+  it('rejects text, a lone minus, and a double minus', () => {
+    expect(Number.isNaN(parseSignedAmountToMinor('abc'))).toBe(true);
+    expect(Number.isNaN(parseSignedAmountToMinor('-'))).toBe(true);
+    expect(Number.isNaN(parseSignedAmountToMinor('--5'))).toBe(true);
   });
 });

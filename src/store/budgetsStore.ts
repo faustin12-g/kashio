@@ -3,6 +3,8 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BudgetProgress, NewBudget } from '../models/types';
 import * as budgetsRepository from '../repositories/budgetsRepository';
 import { listBudgetProgress } from '../services/budgetProgress';
+import { checkBudgetAlerts } from '../services/budgetAlertRunner';
+import { ensureNotificationPermission } from '../services/notifications';
 
 interface BudgetsState {
   progress: BudgetProgress[];
@@ -25,11 +27,17 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
   create: async (db, input) => {
     await budgetsRepository.createBudget(db, input);
     await get().load(db);
+    // Ask for notification permission now, while the user is setting up a
+    // budget and the reason is obvious, then check where spending stands.
+    void ensureNotificationPermission()
+      .catch(() => false)
+      .then(() => checkBudgetAlerts(db));
   },
 
   update: async (db, id, changes) => {
     await budgetsRepository.updateBudget(db, id, changes);
     await get().load(db);
+    void checkBudgetAlerts(db);
   },
 
   remove: async (db, id) => {

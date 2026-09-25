@@ -10,6 +10,8 @@ interface TransactionRow {
   category_id: string | null;
   note: string;
   date: string;
+  account_id: string | null;
+  recurring_id: string | null;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -24,6 +26,8 @@ function fromRow(row: TransactionRow): Transaction {
     categoryId: row.category_id,
     note: row.note,
     date: row.date,
+    accountId: row.account_id,
+    recurringId: row.recurring_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -34,10 +38,21 @@ export interface TransactionFilter {
   from?: string; // inclusive ISO date
   to?: string; // inclusive ISO date
   categoryId?: string;
+  accountId?: string;
   type?: 'expense' | 'income';
+  /** Matches the note or the category name, ignoring case. */
+  search?: string;
+  minMinor?: number;
+  maxMinor?: number;
 }
 
-function buildWhere(filter: TransactionFilter): { clause: string; params: SQLiteBindValue[] } {
+/** Escapes % and _ so a search for "50%" matches the text "50%" and not "50 anything". */
+function likePattern(text: string): string {
+  return `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+}
+
+/** Turns a filter into the WHERE clause and its bound values. Exported so it can be tested. */
+export function buildWhere(filter: TransactionFilter): { clause: string; params: SQLiteBindValue[] } {
   const clauses = ['deleted_at IS NULL'];
   const params: SQLiteBindValue[] = [];
 
@@ -53,9 +68,28 @@ function buildWhere(filter: TransactionFilter): { clause: string; params: SQLite
     clauses.push('category_id = ?');
     params.push(filter.categoryId);
   }
+  if (filter.accountId) {
+    clauses.push('account_id = ?');
+    params.push(filter.accountId);
+  }
   if (filter.type) {
     clauses.push('type = ?');
     params.push(filter.type);
+  }
+  if (filter.minMinor !== undefined) {
+    clauses.push('amount_minor >= ?');
+    params.push(filter.minMinor);
+  }
+  if (filter.maxMinor !== undefined) {
+    clauses.push('amount_minor <= ?');
+    params.push(filter.maxMinor);
+  }
+  const search = filter.search?.trim();
+  if (search) {
+    clauses.push(
+      "(note LIKE ? ESCAPE '\\' OR category_id IN (SELECT id FROM categories WHERE name LIKE ? ESCAPE '\\'))"
+    );
+    params.push(likePattern(search), likePattern(search));
   }
 
   return { clause: clauses.join(' AND '), params };
@@ -81,22 +115,35 @@ export async function getTransaction(db: SQLiteDatabase, id: string): Promise<Tr
   return row ? fromRow(row) : null;
 }
 
+/**
+ * Adds a transaction. Pass `options.id` to use a specific id: recurring rules
+ * do this so two devices generating the same occurrence produce the same
+ * record instead of a duplicate.
+ */
 export async function createTransaction(
   db: SQLiteDatabase,
-  input: NewTransaction
+  input: NewTransaction,
+  options: { id?: string } = {}
 ): Promise<Transaction> {
   const now = Date.now();
   const transaction: Transaction = {
-    id: generateId(),
-    ...input,
+    id: options.id ?? generateId(),
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    type: input.type,
+    categoryId: input.categoryId,
+    note: input.note,
+    date: input.date,
+    accountId: input.accountId ?? null,
+    recurringId: input.recurringId ?? null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
   };
   await db.runAsync(
-    `INSERT INTO transactions
-      (id, amount_minor, currency, type, category_id, note, date, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT OR IGNORE INTO transactions
+      (id, amount_minor, currency, type, category_id, note, date, account_id, recurring_id, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     transaction.id,
     transaction.amountMinor,
     transaction.currency,
@@ -104,6 +151,8 @@ export async function createTransaction(
     transaction.categoryId,
     transaction.note,
     transaction.date,
+    transaction.accountId,
+    transaction.recurringId,
     transaction.createdAt,
     transaction.updatedAt
   );
@@ -117,10 +166,15 @@ export async function updateTransaction(
 ): Promise<void> {
   const current = await getTransaction(db, id);
   if (!current) throw new Error(`Transaction ${id} not found`);
-  const next = { ...current, ...changes, updatedAt: Date.now() };
+  const next = {
+    ...current,
+    ...changes,
+    accountId: changes.accountId === undefined ? current.accountId : changes.accountId,
+    updatedAt: Date.now(),
+  };
   await db.runAsync(
     `UPDATE transactions
-     SET amount_minor = ?, currency = ?, type = ?, category_id = ?, note = ?, date = ?, updated_at = ?
+     SET amount_minor = ?, currency = ?, type = ?, category_id = ?, note = ?, date = ?, account_id = ?, updated_at = ?
      WHERE id = ?`,
     next.amountMinor,
     next.currency,
@@ -128,6 +182,7 @@ export async function updateTransaction(
     next.categoryId,
     next.note,
     next.date,
+    next.accountId,
     next.updatedAt,
     id
   );
@@ -158,6 +213,109 @@ export async function sumByCategory(
   return rows.map((row) => ({ categoryId: row.category_id, totalMinor: row.total }));
 }
 
+export async function sumTotal(db: SQLiteDatabase, filter: TransactionFilter): Promise<number> {
+  const { clause, params } = buildWhere(filter);
+  const row = await db.getFirstAsync<{ total: number | null }>(
+    `SELECT SUM(amount_minor) as total FROM transactions WHERE ${clause}`,
+    ...params
+  );
+  return row?.total ?? 0;
+}
+
+/** Income and spending totals for whatever the filter matches. */
+export async function sumsByType(
+  db: SQLiteDatabase,
+  filter: TransactionFilter
+): Promise<{ incomeMinor: number; expenseMinor: number }> {
+  const { clause, params } = buildWhere({ ...filter, type: undefined });
+  const rows = await db.getAllAsync<{ type: 'expense' | 'income'; total: number }>(
+    `SELECT type, SUM(amount_minor) as total FROM transactions WHERE ${clause} GROUP BY type`,
+    ...params
+  );
+  const totals = { incomeMinor: 0, expenseMinor: 0 };
+  for (const row of rows) {
+    if (row.type === 'income') totals.incomeMinor = row.total;
+    else totals.expenseMinor = row.total;
+  }
+  return totals;
+}
+
+export interface MonthlyTotal {
+  month: string; // yyyy-MM
+  incomeMinor: number;
+  expenseMinor: number;
+}
+
+/** Income and spending per calendar month, from `fromMonth` (yyyy-MM) onwards. Months with nothing are omitted. */
+export async function monthlyTotals(db: SQLiteDatabase, fromMonth: string): Promise<MonthlyTotal[]> {
+  const rows = await db.getAllAsync<{ month: string; type: 'expense' | 'income'; total: number }>(
+    `SELECT substr(date, 1, 7) AS month, type, SUM(amount_minor) AS total
+     FROM transactions
+     WHERE deleted_at IS NULL AND substr(date, 1, 7) >= ?
+     GROUP BY month, type
+     ORDER BY month`,
+    fromMonth
+  );
+  const byMonth = new Map<string, MonthlyTotal>();
+  for (const row of rows) {
+    const entry = byMonth.get(row.month) ?? { month: row.month, incomeMinor: 0, expenseMinor: 0 };
+    if (row.type === 'income') entry.incomeMinor = row.total;
+    else entry.expenseMinor = row.total;
+    byMonth.set(row.month, entry);
+  }
+  return [...byMonth.values()];
+}
+
+/** How many times each category has been used, so the most used ones can be offered first. */
+export async function categoryUsage(db: SQLiteDatabase): Promise<Record<string, number>> {
+  const rows = await db.getAllAsync<{ category_id: string; uses: number }>(
+    `SELECT category_id, COUNT(*) AS uses FROM transactions
+     WHERE deleted_at IS NULL AND category_id IS NOT NULL GROUP BY category_id`
+  );
+  return Object.fromEntries(rows.map((row) => [row.category_id, row.uses]));
+}
+
+export interface RecentEntry {
+  type: 'expense' | 'income';
+  categoryId: string | null;
+  amountMinor: number;
+  note: string;
+  accountId: string | null;
+}
+
+/** The most recent distinct entries, for a one-tap "add this again". */
+export async function recentDistinctEntries(db: SQLiteDatabase, limit: number): Promise<RecentEntry[]> {
+  const rows = await db.getAllAsync<{
+    type: 'expense' | 'income';
+    category_id: string | null;
+    amount_minor: number;
+    note: string;
+    account_id: string | null;
+  }>(
+    `SELECT type, category_id, amount_minor, note, account_id, MAX(created_at) AS latest
+     FROM transactions
+     WHERE deleted_at IS NULL AND recurring_id IS NULL
+     GROUP BY type, category_id, amount_minor, note, account_id
+     ORDER BY latest DESC
+     LIMIT ?`,
+    limit
+  );
+  return rows.map((row) => ({
+    type: row.type,
+    categoryId: row.category_id,
+    amountMinor: row.amount_minor,
+    note: row.note,
+    accountId: row.account_id,
+  }));
+}
+
+export async function countTransactions(db: SQLiteDatabase): Promise<number> {
+  const row = await db.getFirstAsync<{ total: number }>(
+    'SELECT COUNT(*) AS total FROM transactions WHERE deleted_at IS NULL'
+  );
+  return row?.total ?? 0;
+}
+
 /** All rows including soft-deleted ones — used for backup export/merge, never for UI lists. */
 export async function listAllForBackup(db: SQLiteDatabase): Promise<Transaction[]> {
   const rows = await db.getAllAsync<TransactionRow>('SELECT * FROM transactions');
@@ -176,8 +334,8 @@ export async function upsertTransactionFromBackup(
 ): Promise<void> {
   await db.runAsync(
     `INSERT INTO transactions
-      (id, amount_minor, currency, type, category_id, note, date, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, amount_minor, currency, type, category_id, note, date, account_id, recurring_id, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        amount_minor = excluded.amount_minor,
        currency = excluded.currency,
@@ -185,6 +343,8 @@ export async function upsertTransactionFromBackup(
        category_id = excluded.category_id,
        note = excluded.note,
        date = excluded.date,
+       account_id = excluded.account_id,
+       recurring_id = excluded.recurring_id,
        created_at = excluded.created_at,
        updated_at = excluded.updated_at,
        deleted_at = excluded.deleted_at`,
@@ -195,17 +355,10 @@ export async function upsertTransactionFromBackup(
     transaction.categoryId,
     transaction.note,
     transaction.date,
+    transaction.accountId ?? null,
+    transaction.recurringId ?? null,
     transaction.createdAt,
     transaction.updatedAt,
     transaction.deletedAt
   );
-}
-
-export async function sumTotal(db: SQLiteDatabase, filter: TransactionFilter): Promise<number> {
-  const { clause, params } = buildWhere(filter);
-  const row = await db.getFirstAsync<{ total: number | null }>(
-    `SELECT SUM(amount_minor) as total FROM transactions WHERE ${clause}`,
-    ...params
-  );
-  return row?.total ?? 0;
 }

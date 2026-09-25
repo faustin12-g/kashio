@@ -4,6 +4,7 @@ import type { DriveAccount, SyncStatus } from '../models/types';
 import * as googleAuth from '../services/googleAuth';
 import { backupToDrive, restoreFromDrive } from '../services/backup';
 import { getMeta, META_KEYS } from '../repositories/metaRepository';
+import { reloadAllStores } from './reloadAll';
 
 interface SyncState {
   status: SyncStatus;
@@ -77,6 +78,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     set({ status: 'restoring', lastError: null });
     try {
       const result = await restoreFromDrive(db);
+      if (result) await reloadAllStores(db);
       set({ status: 'idle', lastRestoreAt: result?.restoredAt ?? get().lastRestoreAt });
       return result;
     } catch (error) {

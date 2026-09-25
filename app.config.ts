@@ -18,21 +18,22 @@ const GOOGLE_IOS_URL_SCHEME =
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Buget',
-  slug: 'buget',
-  scheme: 'buget',
-  version: '1.0.0',
+  name: 'Kashio',
+  slug: 'kashio',
+  scheme: 'kashio',
+  version: '1.2.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   ios: {
     ...config.ios,
     supportsTablet: true,
-    bundleIdentifier: 'com.buget.app',
+    bundleIdentifier: 'com.kashio.app',
   },
   android: {
     ...config.android,
-    package: 'com.buget.app',
+    package: 'com.kashio.app',
+    versionCode: 4,
     adaptiveIcon: {
       backgroundColor: '#FAF7F3',
       foregroundImage: './assets/android-icon-foreground.png',
@@ -48,6 +49,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-sqlite',
+    '@react-native-vector-icons/material-design-icons',
+    'expo-sharing',
+    'expo-background-task',
+    ['expo-local-authentication', { faceIDPermission: 'Kashio uses Face ID to keep your money private.' }],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/notification-icon.png',
+        color: '#1541E7',
+        defaultChannel: 'budget-alerts',
+      },
+    ],
     [
       'expo-splash-screen',
       {

@@ -1,6 +1,6 @@
 /**
  * Thin wrapper around the Google Drive v3 REST API, scoped to exactly what
- * the backup feature needs: find-or-create a visible "Buget Backups"
+ * the backup feature needs: find-or-create a visible "Kashio Backups"
  * folder, and read/write a single JSON file inside it. No SDK dependency —
  * just fetch, since the `drive.file` scope only needs a handful of calls.
  */
@@ -8,17 +8,59 @@
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 
-export const BACKUP_FOLDER_NAME = 'Buget Backups';
-export const BACKUP_FILE_NAME = 'buget-backup.json';
+export const BACKUP_FOLDER_NAME = 'Kashio Backups';
+export const BACKUP_FILE_NAME = 'kashio-backup.json';
 
 export class DriveApiError extends Error {
   constructor(
     message: string,
-    public readonly status: number
+    public readonly status: number,
+    /** True when Google rejected the token for lacking Drive permission (not a network/server fault). */
+    public readonly isScopeError: boolean = false
   ) {
     super(message);
     this.name = 'DriveApiError';
   }
+}
+
+interface GoogleErrorBody {
+  error?: {
+    message?: string;
+    errors?: { reason?: string }[];
+    details?: { reason?: string }[];
+  };
+}
+
+/**
+ * Turns a raw Drive error response into a short message a person can act on,
+ * and flags the "token lacks Drive permission" case so callers can recover.
+ */
+export function parseDriveError(status: number, body: string): { message: string; isScopeError: boolean } {
+  let parsed: GoogleErrorBody = {};
+  try {
+    parsed = JSON.parse(body) as GoogleErrorBody;
+  } catch {
+    // Not JSON (e.g. an HTML error page); fall through to the generic message.
+  }
+
+  const reasons = [
+    ...(parsed.error?.errors?.map((entry) => entry.reason) ?? []),
+    ...(parsed.error?.details?.map((entry) => entry.reason) ?? []),
+  ];
+  const isScopeError =
+    reasons.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || reasons.includes('insufficientPermissions');
+
+  if (isScopeError) {
+    return {
+      message: 'Kashio does not have permission to use your Google Drive yet. Please allow Drive access when asked.',
+      isScopeError: true,
+    };
+  }
+  const detail = parsed.error?.message;
+  return {
+    message: detail ? `Google Drive error (${status}): ${detail}` : `Google Drive error (${status}).`,
+    isScopeError: false,
+  };
 }
 
 async function driveFetch(accessToken: string, url: string, init: RequestInit = {}): Promise<Response> {
@@ -31,7 +73,8 @@ async function driveFetch(accessToken: string, url: string, init: RequestInit = 
   });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    throw new DriveApiError(`Drive API ${response.status}: ${body || response.statusText}`, response.status);
+    const { message, isScopeError } = parseDriveError(response.status, body);
+    throw new DriveApiError(message, response.status, isScopeError);
   }
   return response;
 }

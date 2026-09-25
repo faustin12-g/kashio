@@ -3,68 +3,120 @@ import { Platform } from 'react-native';
 import type { BackupPayload } from '../models/types';
 import { listCategories, upsertCategoryFromBackup } from '../repositories/categoriesRepository';
 import {
+  countTransactions,
   listAllForBackup as listAllTransactions,
   upsertTransactionFromBackup,
 } from '../repositories/transactionsRepository';
 import { listAllForBackup as listAllBudgets, upsertBudgetFromBackup } from '../repositories/budgetsRepository';
-import { getMeta, setMeta, META_KEYS } from '../repositories/metaRepository';
-import { getAccessToken } from './googleAuth';
 import {
+  listAllAccountsForBackup,
+  listAllTransfersForBackup,
+  upsertAccountFromBackup,
+  upsertTransferFromBackup,
+} from '../repositories/accountsRepository';
+import {
+  listAllContributionsForBackup,
+  listAllGoalsForBackup,
+  upsertContributionFromBackup,
+  upsertGoalFromBackup,
+} from '../repositories/goalsRepository';
+import {
+  listAllDebtsForBackup,
+  listAllPaymentsForBackup,
+  upsertDebtFromBackup,
+  upsertPaymentFromBackup,
+} from '../repositories/debtsRepository';
+import { listAllRecurringForBackup, upsertRecurringFromBackup } from '../repositories/recurringRepository';
+import { getMeta, setMeta, META_KEYS } from '../repositories/metaRepository';
+import { getAccessToken, invalidateAccessToken } from './googleAuth';
+import {
+  DriveApiError,
   findBackupFile,
   findOrCreateBackupFolder,
   readBackupFile,
   writeBackupFile,
 } from './googleDrive';
-import { recordsToApplyFromRemote } from './merge';
-
-const SCHEMA_VERSION = 1;
+import { recordsToApplyFromRemote, type Mergeable } from './merge';
+import { BACKUP_SCHEMA_VERSION, parseBackupPayload } from './backupFormat';
 
 export async function buildBackupPayload(db: SQLiteDatabase): Promise<BackupPayload> {
-  const [categories, transactions, budgets] = await Promise.all([
-    listCategories(db, { includeArchived: true }),
-    listAllTransactions(db),
-    listAllBudgets(db),
-  ]);
-
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    deviceName: Platform.OS === 'ios' ? 'iOS device' : 'Android device',
+  const [
     categories,
     transactions,
     budgets,
+    accounts,
+    transfers,
+    goals,
+    goalContributions,
+    debts,
+    debtPayments,
+    recurring,
+    currency,
+  ] = await Promise.all([
+    listCategories(db, { includeArchived: true }),
+    listAllTransactions(db),
+    listAllBudgets(db),
+    listAllAccountsForBackup(db),
+    listAllTransfersForBackup(db),
+    listAllGoalsForBackup(db),
+    listAllContributionsForBackup(db),
+    listAllDebtsForBackup(db),
+    listAllPaymentsForBackup(db),
+    listAllRecurringForBackup(db),
+    getMeta(db, META_KEYS.currency),
+  ]);
+
+  return {
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    deviceName: Platform.OS === 'ios' ? 'iOS device' : 'Android device',
+    currency: currency ?? undefined,
+    categories,
+    transactions,
+    budgets,
+    accounts,
+    transfers,
+    goals,
+    goalContributions,
+    debts,
+    debtPayments,
+    recurring,
   };
 }
 
-function parseBackupPayload(raw: string): BackupPayload {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('The backup file on Drive is not valid JSON. It may be corrupted.');
-  }
-  const payload = parsed as Partial<BackupPayload>;
-  if (
-    !payload ||
-    typeof payload.schemaVersion !== 'number' ||
-    !Array.isArray(payload.categories) ||
-    !Array.isArray(payload.transactions) ||
-    !Array.isArray(payload.budgets)
-  ) {
-    throw new Error('The backup file on Drive has an unexpected format.');
-  }
-  if (payload.schemaVersion > SCHEMA_VERSION) {
-    throw new Error(
-      'This backup was created by a newer version of Buget. Update the app before restoring it.'
-    );
-  }
-  return payload as BackupPayload;
+export interface DriveOptions {
+  /** When false, never show a permission screen: fail quietly instead. Used for automatic backups. */
+  interactive?: boolean;
 }
 
-/** Uploads the current local database to Drive as a single JSON file, creating it on first run. */
-export async function backupToDrive(db: SQLiteDatabase): Promise<{ backedUpAt: number }> {
-  const accessToken = await getAccessToken();
+/**
+ * Runs `work` with a Drive access token. If Google rejects the token (expired,
+ * or issued without Drive permission), it discards that token and retries
+ * exactly once with a fresh one; a second failure is reported as is.
+ */
+async function withDriveToken<T>(
+  options: DriveOptions,
+  work: (accessToken: string) => Promise<T>
+): Promise<T> {
+  const token = await getAccessToken({ interactive: options.interactive ?? true });
+  try {
+    return await work(token);
+  } catch (error) {
+    const retryable = error instanceof DriveApiError && (error.isScopeError || error.status === 401);
+    if (!retryable) throw error;
+    await invalidateAccessToken(token);
+    return work(await getAccessToken({ interactive: options.interactive ?? true }));
+  }
+}
 
+export function backupToDrive(
+  db: SQLiteDatabase,
+  options: DriveOptions = {}
+): Promise<{ backedUpAt: number }> {
+  return withDriveToken(options, (accessToken) => backupWithToken(db, accessToken));
+}
+
+async function backupWithToken(db: SQLiteDatabase, accessToken: string): Promise<{ backedUpAt: number }> {
   const cachedFolderId = await getMeta(db, META_KEYS.driveFolderId);
   const folderId = await findOrCreateBackupFolder(accessToken, cachedFolderId);
 
@@ -82,15 +134,31 @@ export async function backupToDrive(db: SQLiteDatabase): Promise<{ backedUpAt: n
   return { backedUpAt: now };
 }
 
-/**
- * Downloads the Drive backup (if one exists) and merges it into the local
- * database using last-write-wins per record — see `services/merge.ts`.
- * Returns null if there is nothing on Drive yet (e.g. first run on a new
- * device before any backup has ever been made).
- */
-export async function restoreFromDrive(db: SQLiteDatabase): Promise<{ restoredAt: number } | null> {
-  const accessToken = await getAccessToken();
+export function restoreFromDrive(
+  db: SQLiteDatabase,
+  options: DriveOptions = {}
+): Promise<{ restoredAt: number } | null> {
+  return withDriveToken(options, (accessToken) => restoreWithToken(db, accessToken));
+}
 
+interface MergePlan<T extends Mergeable> {
+  local: T[];
+  remote: T[];
+  apply: (db: SQLiteDatabase, record: T) => Promise<void>;
+}
+
+function plan<T extends Mergeable>(
+  local: T[],
+  remote: T[] | undefined,
+  apply: (db: SQLiteDatabase, record: T) => Promise<void>
+): MergePlan<T> {
+  return { local, remote: remote ?? [], apply };
+}
+
+async function restoreWithToken(
+  db: SQLiteDatabase,
+  accessToken: string
+): Promise<{ restoredAt: number } | null> {
   const cachedFolderId = await getMeta(db, META_KEYS.driveFolderId);
   const folderId = await findOrCreateBackupFolder(accessToken, cachedFolderId);
   await setMeta(db, META_KEYS.driveFolderId, folderId);
@@ -102,27 +170,57 @@ export async function restoreFromDrive(db: SQLiteDatabase): Promise<{ restoredAt
   const raw = await readBackupFile(accessToken, remoteFile.id);
   const payload = parseBackupPayload(raw);
 
-  const [localCategories, localTransactions, localBudgets] = await Promise.all([
+  // A phone with no transactions yet is a fresh install: take the currency from the backup.
+  const isFreshInstall = (await countTransactions(db)) === 0;
+
+  const [
+    categories,
+    transactions,
+    budgets,
+    accounts,
+    transfers,
+    goals,
+    contributions,
+    debts,
+    payments,
+    recurring,
+  ] = await Promise.all([
     listCategories(db, { includeArchived: true }),
     listAllTransactions(db),
     listAllBudgets(db),
+    listAllAccountsForBackup(db),
+    listAllTransfersForBackup(db),
+    listAllGoalsForBackup(db),
+    listAllContributionsForBackup(db),
+    listAllDebtsForBackup(db),
+    listAllPaymentsForBackup(db),
+    listAllRecurringForBackup(db),
   ]);
 
-  const categoriesToApply = recordsToApplyFromRemote(localCategories, payload.categories);
-  const transactionsToApply = recordsToApplyFromRemote(localTransactions, payload.transactions);
-  const budgetsToApply = recordsToApplyFromRemote(localBudgets, payload.budgets);
+  // Categories and accounts first, since everything else can point at them.
+  const plans = [
+    plan(categories, payload.categories, upsertCategoryFromBackup),
+    plan(accounts, payload.accounts, upsertAccountFromBackup),
+    plan(transactions, payload.transactions, upsertTransactionFromBackup),
+    plan(budgets, payload.budgets, upsertBudgetFromBackup),
+    plan(transfers, payload.transfers, upsertTransferFromBackup),
+    plan(goals, payload.goals, upsertGoalFromBackup),
+    plan(contributions, payload.goalContributions, upsertContributionFromBackup),
+    plan(debts, payload.debts, upsertDebtFromBackup),
+    plan(payments, payload.debtPayments, upsertPaymentFromBackup),
+    plan(recurring, payload.recurring, upsertRecurringFromBackup),
+  ];
 
   await db.withTransactionAsync(async () => {
-    // Categories first: transactions/budgets may reference category ids
-    // that only just arrived from the backup.
-    for (const category of categoriesToApply) {
-      await upsertCategoryFromBackup(db, category);
+    for (const step of plans) {
+      // The generic parameter differs per step, so the loop treats records as opaque.
+      const toApply = recordsToApplyFromRemote(step.local as Mergeable[], step.remote as Mergeable[]);
+      for (const record of toApply) {
+        await (step.apply as (db: SQLiteDatabase, record: Mergeable) => Promise<void>)(db, record);
+      }
     }
-    for (const transaction of transactionsToApply) {
-      await upsertTransactionFromBackup(db, transaction);
-    }
-    for (const budget of budgetsToApply) {
-      await upsertBudgetFromBackup(db, budget);
+    if (isFreshInstall && payload.currency) {
+      await setMeta(db, META_KEYS.currency, payload.currency);
     }
   });
 

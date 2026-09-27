@@ -53,11 +53,15 @@ export async function hasNotificationPermission(): Promise<boolean> {
 }
 
 /** Shows a notification right now. Returns false if it could not be shown. */
-export async function showNotification(title: string, body: string): Promise<boolean> {
+export async function showNotification(
+  title: string,
+  body: string,
+  data: { kind: string; route?: string } = { kind: 'budget', route: '/budgets' }
+): Promise<boolean> {
   if (!(await ensureNotificationPermission())) return false;
   await configureNotifications();
   await Notifications.scheduleNotificationAsync({
-    content: { title, body },
+    content: { title, body, data },
     trigger: { channelId: ALERTS_CHANNEL },
   });
   return true;
@@ -75,7 +79,7 @@ export async function scheduleDailyReminder(
   await configureNotifications();
   await Notifications.scheduleNotificationAsync({
     identifier: DAILY_REMINDER_ID,
-    content: { title, body },
+    content: { title, body, data: { kind: 'reminder', route: '/transactions/new' } },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
@@ -105,7 +109,7 @@ export async function scheduleDebtReminder(
   await configureNotifications();
   await Notifications.scheduleNotificationAsync({
     identifier: debtReminderId(debtId),
-    content: { title, body },
+    content: { title, body, data: { kind: 'debt', route: '/debts' } },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: when,
@@ -145,7 +149,7 @@ export async function replaceRecurringReminders(reminders: RecurringReminder[]):
     if (reminder.when.getTime() <= Date.now()) continue;
     await Notifications.scheduleNotificationAsync({
       identifier: RECURRING_PREFIX + reminder.id,
-      content: { title: reminder.title, body: reminder.body },
+      content: { title: reminder.title, body: reminder.body, data: { kind: 'recurring', route: '/recurring' } },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: reminder.when,

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
+import { fonts } from '../constants/fonts';
 
 interface ListRowProps {
   icon: IconName;
@@ -74,8 +75,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1 },
   iconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   middle: { flex: 1, gap: 2 },
-  title: { fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 15, fontFamily: fonts.semibold },
   subtitle: { fontSize: 13 },
   trailing: { alignItems: 'flex-end', maxWidth: '45%' },
-  trailingText: { fontSize: 15, fontWeight: '700' },
+  trailingText: { fontSize: 15, fontFamily: fonts.bold },
 });

@@ -6,6 +6,7 @@ import { useTranslation } from '../i18n/useTranslation';
 import { Button } from './Button';
 import { Icon, type IconName } from './Icon';
 import type { EntryType } from '../models/types';
+import { fonts } from '../constants/fonts';
 
 const COLOR_PRESETS = [
   '#EF4444',
@@ -99,7 +100,7 @@ export function CategoryFormModal({
                         onPress={() => setType(option)}
                         style={[styles.typeButton, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
                       >
-                        <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
+                        <Text style={{ color: selected ? theme.primaryText : theme.text, fontFamily: fonts.bold }}>
                           {option === 'expense' ? t('cat.expenseTab') : t('cat.incomeTab')}
                         </Text>
                       </Pressable>
@@ -163,8 +164,8 @@ export function CategoryFormModal({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
-  title: { fontSize: 18, fontWeight: '700' },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase' },
+  title: { fontSize: 18, fontFamily: fonts.bold },
+  label: { fontSize: 12, fontFamily: fonts.semibold, marginBottom: 6, textTransform: 'uppercase' },
   nameInput: { borderRadius: 10, borderWidth: 1, padding: 10, fontSize: 15 },
   typeSwitch: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },

@@ -12,6 +12,7 @@ import {
   resolveLanguage,
   shortMonthLabel,
   translate,
+  weekdayShortLabels,
 } from '../../src/i18n';
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
@@ -112,6 +113,14 @@ describe('dates', () => {
   it('gives short month labels for charts', () => {
     expect(shortMonthLabel('2026-09', 'en')).toBe('Sep');
     expect(shortMonthLabel('2026-09', 'rw')).toBe('Nze');
+  });
+
+  it('gives 7 Monday-first weekday labels in each language, with no duplicates', () => {
+    for (const language of ['en', 'fr', 'rw'] as const) {
+      const labels = weekdayShortLabels(language);
+      expect(labels).toHaveLength(7);
+      expect(new Set(labels).size).toBe(7);
+    }
   });
 });
 

@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Kashio',
   slug: 'kashio',
   scheme: 'kashio',
-  version: '1.3.0',
+  version: '1.9.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
@@ -33,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     ...config.android,
     package: 'com.kashio.app',
-    versionCode: 5,
+    versionCode: 13,
     adaptiveIcon: {
       backgroundColor: '#FAF7F3',
       foregroundImage: './assets/android-icon-foreground.png',
@@ -51,6 +51,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-sqlite',
     '@react-native-vector-icons/material-design-icons',
     'expo-sharing',
+    [
+      'expo-image-picker',
+      {
+        cameraPermission: 'Kashio uses the camera so you can photograph a receipt.',
+        photosPermission: 'Kashio reads a photo you choose so you can attach it as a receipt.',
+      },
+    ],
     'expo-background-task',
     ['expo-local-authentication', { faceIDPermission: 'Kashio uses Face ID to keep your money private.' }],
     [

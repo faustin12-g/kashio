@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useAccountsStore } from '../store/accountsStore';
 import { useCategoriesStore } from '../store/categoriesStore';
+import { useNotificationsStore } from '../store/notificationsStore';
 import { useRecurringStore } from '../store/recurringStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
@@ -12,6 +12,7 @@ import { useTheme } from '../constants/theme';
 import { countTransactions } from '../repositories/transactionsRepository';
 import { registerAutoBackupTask, runAutoBackupIfDue } from '../services/autoBackup';
 import { configureNotifications } from '../services/notifications';
+import { reconcilePresentedNotifications, watchDeliveredNotifications } from '../services/notificationLog';
 import { syncDailyReminder } from '../services/reminders';
 import { Logo } from './Logo';
 
@@ -49,7 +50,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         await settings.completeOnboarding(db);
       }
 
-      await Promise.all([useAccountsStore.getState().load(db), useRecurringStore.getState().load(db)]);
+      await useRecurringStore.getState().load(db);
     }
 
     start()
@@ -72,7 +73,14 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
       registerAutoBackupTask().catch(() => undefined);
       void runAutoBackupIfDue(db);
     }
+    void reconcilePresentedNotifications(db).then(() => useNotificationsStore.getState().load(db));
   }, [ready, db]);
+
+  // Logs every notification Kashio sends while the app is open, for the Notifications screen.
+  useEffect(
+    () => watchDeliveredNotifications(db, () => void useNotificationsStore.getState().load(db)),
+    [db]
+  );
 
   if (!ready) {
     return (

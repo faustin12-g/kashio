@@ -112,6 +112,17 @@ export function shortMonthLabel(month: string, language: Language): string {
   return format(date, 'MMM');
 }
 
+/**
+ * The 7 weekday header letters for a calendar grid, Monday first. Kinyarwanda
+ * names are literally ordinal ("first day", "second day", ...), so the
+ * conventional short form there is the numeral itself, with "Cy" for Sunday.
+ */
+export function weekdayShortLabels(language: Language): string[] {
+  if (language === 'fr') return ['lu', 'ma', 'me', 'je', 've', 'sa', 'di'];
+  if (language === 'rw') return ['1', '2', '3', '4', '5', '6', 'Cy'];
+  return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+}
+
 /** "just now", "5 min ago", "3 h ago", "2 d ago" in the user's language. */
 export function formatRelativeTime(epochMs: number, t: TFunction, nowMs: number = Date.now()): string {
   const minutes = Math.floor(Math.max(0, nowMs - epochMs) / 60000);

@@ -11,6 +11,8 @@ interface GoalsState {
   create: (db: SQLiteDatabase, input: NewGoal) => Promise<Goal>;
   update: (db: SQLiteDatabase, id: string, changes: Partial<NewGoal>) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  /** Undoes a delete within the short window the "Undo" toast offers. */
+  restore: (db: SQLiteDatabase, id: string) => Promise<void>;
   addContribution: (db: SQLiteDatabase, input: NewGoalContribution) => Promise<void>;
   removeContribution: (db: SQLiteDatabase, id: string) => Promise<void>;
 }
@@ -36,6 +38,11 @@ export const useGoalsStore = create<GoalsState>((set, get) => ({
 
   remove: async (db, id) => {
     await goalsRepository.deleteGoal(db, id);
+    await get().load(db);
+  },
+
+  restore: async (db, id) => {
+    await goalsRepository.restoreGoal(db, id);
     await get().load(db);
   },
 

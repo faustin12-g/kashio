@@ -11,6 +11,7 @@ import { useTheme } from '../../constants/theme';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useDebtsStore } from '../../store/debtsStore';
+import { useUndoStore } from '../../store/undoStore';
 import { minorToInputString, parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 import type { DebtDirection } from '../../models/types';
@@ -75,6 +76,9 @@ export default function EditDebtScreen() {
         onPress: async () => {
           await remove(db, existing.id);
           router.dismissTo('/debts');
+          useUndoStore.getState().show(t('undo.debtDeleted'), () => {
+            void useDebtsStore.getState().restore(db, existing.id);
+          });
         },
       },
     ]);

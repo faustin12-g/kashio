@@ -11,14 +11,13 @@ import { buildUpsertSql } from '../../src/db/upsert';
 import { buildWhere } from '../../src/repositories/transactionsRepository';
 import { buildSummary } from '../../src/services/summary';
 
-const HEADERS = { date: 'Date', type: 'Type', category: 'Category', account: 'Account', amount: 'Amount', note: 'Note' };
+const HEADERS = { date: 'Date', type: 'Type', category: 'Category', amount: 'Amount', note: 'Note' };
 const TYPES = { expense: 'Expense', income: 'Income' };
 
 const row = (overrides: Partial<ExportRow> = {}): ExportRow => ({
   date: '2026-09-10',
   type: 'expense',
   category: 'Groceries',
-  account: 'Cash',
   amountMinor: 650000,
   note: 'Weekly shop',
   ...overrides,
@@ -40,13 +39,13 @@ describe('buildCsv', () => {
   it('starts with a byte-order mark and a header row, and uses Windows line endings', () => {
     const csv = buildCsv([], HEADERS, TYPES);
     expect(csv.startsWith('﻿')).toBe(true);
-    expect(csv).toContain('Date,Type,Category,Account,Amount,Note\r\n');
+    expect(csv).toContain('Date,Type,Category,Amount,Note\r\n');
   });
 
   it('writes expenses as negative amounts and income as positive', () => {
     const csv = buildCsv([row(), row({ type: 'income', amountMinor: 100000, note: 'Pay' })], HEADERS, TYPES);
-    expect(csv).toContain('2026-09-10,Expense,Groceries,Cash,-6500.00,Weekly shop');
-    expect(csv).toContain('2026-09-10,Income,Groceries,Cash,1000.00,Pay');
+    expect(csv).toContain('2026-09-10,Expense,Groceries,-6500.00,Weekly shop');
+    expect(csv).toContain('2026-09-10,Income,Groceries,1000.00,Pay');
   });
 
   it('keeps awkward notes intact in one field', () => {
@@ -78,9 +77,10 @@ describe('buildReportHtml', () => {
     balance: 'Balance',
     date: 'Date',
     category: 'Category',
-    account: 'Account',
     note: 'Note',
-    amount: 'Amount',
+    colExpense: 'Expense',
+    colIncome: 'Income',
+    total: 'Total',
     empty: 'Nothing here',
     generatedBy: 'Made with Kashio',
   };
@@ -99,11 +99,32 @@ describe('buildReportHtml', () => {
     expect(html).toContain('September 2026');
     expect(html).toContain('RWF 3,500');
     expect(html).toContain('Weekly shop');
-    expect(html).toContain('-RWF 6500');
+    expect(html).toContain('RWF 6500');
   });
 
-  it('shows a message instead of an empty table', () => {
-    expect(buildReportHtml({ ...input, rows: [] })).toContain('Nothing here');
+  it('puts an expense in the expense column only, and income in the income column only', () => {
+    const html = buildReportHtml({
+      ...input,
+      rows: [row({ amountMinor: 650000 }), row({ type: 'income', amountMinor: 100000, note: 'Pay', category: 'Salary' })],
+    });
+    expect(html).toMatch(/Weekly shop<\/td>\s*<td class="num out">RWF 6500<\/td>\s*<td class="num in"><\/td>/);
+    expect(html).toMatch(/Pay<\/td>\s*<td class="num out"><\/td>\s*<td class="num in">RWF 1000<\/td>/);
+  });
+
+  it('adds a totals row summing each column', () => {
+    const html = buildReportHtml({
+      ...input,
+      rows: [row({ amountMinor: 650000 }), row({ amountMinor: 50000 }), row({ type: 'income', amountMinor: 100000 })],
+    });
+    expect(html).toContain('class="totals"');
+    // The test formatter divides by 100: expense total 650000 + 50000 = 700000 -> "RWF 7000".
+    expect(html).toMatch(/class="totals">\s*<td colspan="3">Total<\/td>\s*<td class="num out">RWF 7000<\/td>\s*<td class="num in">RWF 1000<\/td>/);
+  });
+
+  it('shows a message instead of an empty table, with no totals row', () => {
+    const html = buildReportHtml({ ...input, rows: [] });
+    expect(html).toContain('Nothing here');
+    expect(html).not.toContain('class="totals"');
   });
 
   it('shows the logo in the header only when one is given', () => {
@@ -131,17 +152,20 @@ describe('parseBackupPayload', () => {
 
   it('accepts an old version-1 backup and fills in the lists it did not have', () => {
     const payload = parseBackupPayload(version1);
-    expect(payload.accounts).toEqual([]);
     expect(payload.goals).toEqual([]);
     expect(payload.debts).toEqual([]);
     expect(payload.recurring).toEqual([]);
   });
 
   it('accepts a current backup', () => {
-    const current = JSON.stringify({ ...JSON.parse(version1), schemaVersion: BACKUP_SCHEMA_VERSION, currency: 'RWF', accounts: [{ id: 'a' }] });
+    const current = JSON.stringify({ ...JSON.parse(version1), schemaVersion: BACKUP_SCHEMA_VERSION, currency: 'RWF' });
     const payload = parseBackupPayload(current);
     expect(payload.currency).toBe('RWF');
-    expect(payload.accounts).toHaveLength(1);
+  });
+
+  it('ignores accounts/transfers left over in an old backup rather than choking on them', () => {
+    const legacy = JSON.stringify({ ...JSON.parse(version1), accounts: [{ id: 'a' }], transfers: [{ id: 't' }] });
+    expect(() => parseBackupPayload(legacy)).not.toThrow();
   });
 
   it('refuses a backup from a newer app version rather than misreading it', () => {
@@ -178,7 +202,6 @@ describe('buildWhere', () => {
       from: '2026-09-01',
       to: '2026-09-30',
       categoryId: 'c1',
-      accountId: 'a1',
       type: 'expense',
       minMinor: 100,
       maxMinor: 900,
@@ -186,11 +209,10 @@ describe('buildWhere', () => {
     expect(clause).toContain('date >= ?');
     expect(clause).toContain('date <= ?');
     expect(clause).toContain('category_id = ?');
-    expect(clause).toContain('account_id = ?');
     expect(clause).toContain('type = ?');
     expect(clause).toContain('amount_minor >= ?');
     expect(clause).toContain('amount_minor <= ?');
-    expect(params).toEqual(['2026-09-01', '2026-09-30', 'c1', 'a1', 'expense', 100, 900]);
+    expect(params).toEqual(['2026-09-01', '2026-09-30', 'c1', 'expense', 100, 900]);
   });
 
   it('searches both the note and the category name, escaping wildcard characters', () => {
@@ -206,12 +228,9 @@ describe('buildWhere', () => {
   });
 });
 
-describe('buildSummary with opening balances', () => {
-  it('adds the money accounts started with to the balance', () => {
-    expect(buildSummary(2000, 500, 10000).balanceMinor).toBe(11500);
-  });
-
-  it('is unchanged when there are no accounts', () => {
+describe('buildSummary', () => {
+  it('balance is income minus spending', () => {
+    // "Money I already had" is itself recorded as income, so it needs no separate term here.
     expect(buildSummary(2000, 500).balanceMinor).toBe(1500);
   });
 });

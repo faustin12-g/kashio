@@ -6,6 +6,7 @@ import { useTheme } from '../constants/theme';
 import { useTranslation } from '../i18n/useTranslation';
 import { authenticateOwner, shouldLockOnReturn } from '../services/appLock';
 import { useSettingsStore } from '../store/settingsStore';
+import { fonts } from '../constants/fonts';
 
 /**
  * Covers the app with a lock screen when the app lock is on: at start-up, and
@@ -83,6 +84,6 @@ export function LockGate({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   cover: { alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  title: { fontSize: 22, fontWeight: '800' },
+  title: { fontSize: 22, fontFamily: fonts.extrabold },
   button: { alignSelf: 'stretch', marginTop: 12 },
 });

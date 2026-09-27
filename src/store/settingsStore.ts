@@ -1,5 +1,6 @@
 import { Appearance } from 'react-native';
 import { create } from 'zustand';
+import Constants from 'expo-constants';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getMeta, setMeta, META_KEYS } from '../repositories/metaRepository';
 import { DEFAULT_THEME_MODE, parseThemeMode, type ThemeMode } from '../constants/themeMode';
@@ -140,5 +141,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   completeOnboarding: async (db) => {
     set({ onboardingDone: true });
     await setMeta(db, META_KEYS.onboardingDone, '1');
+    // A fresh install has nothing to "catch up" on — the welcome tour just covered it —
+    // so it starts already caught up to this version, and never sees a "what's new" for it.
+    const currentVersion = Constants.expoConfig?.version;
+    if (currentVersion) await setMeta(db, META_KEYS.lastSeenVersion, currentVersion);
   },
 }));

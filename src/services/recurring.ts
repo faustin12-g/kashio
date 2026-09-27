@@ -70,6 +70,24 @@ export function upcomingOccurrences(rule: RuleSchedule, count: number): DueOccur
 }
 
 /**
+ * Every occurrence of a rule that falls within an inclusive date range,
+ * whether already due or still ahead — used to mark a month on the calendar.
+ * Occurrences already recorded or skipped (before `generatedCount`) are never
+ * included, since they no longer need marking.
+ */
+export function occurrencesInRange(rule: RuleSchedule, fromIso: string, toIso: string): DueOccurrence[] {
+  if (!rule.isActive) return [];
+  const inRange: DueOccurrence[] = [];
+  for (let index = rule.generatedCount; inRange.length < MAX_CATCH_UP; index++) {
+    const date = occurrenceDate(rule.startDate, rule.frequency, index);
+    if (date > toIso) break;
+    if (rule.endDate && date > rule.endDate) break;
+    if (date >= fromIso) inRange.push({ index, date });
+  }
+  return inRange;
+}
+
+/**
  * The id every device gives the transaction for one occurrence of one rule.
  * Because it is the same everywhere, restoring a backup from another device
  * can never produce a duplicate of an occurrence that already exists.
@@ -100,7 +118,6 @@ export async function recordOccurrence(
         categoryId: rule.categoryId,
         note: rule.note,
         date: occurrence.date,
-        accountId: rule.accountId,
         recurringId: rule.id,
       },
       { id: recurringTransactionId(rule.id, occurrence.index) }

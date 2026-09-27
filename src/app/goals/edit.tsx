@@ -10,6 +10,7 @@ import { useTheme } from '../../constants/theme';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useGoalsStore } from '../../store/goalsStore';
+import { useUndoStore } from '../../store/undoStore';
 import { minorToInputString, parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 
@@ -77,6 +78,9 @@ export default function EditGoalScreen() {
         onPress: async () => {
           await remove(db, existing.id);
           router.dismissTo('/goals');
+          useUndoStore.getState().show(t('undo.goalDeleted'), () => {
+            void useGoalsStore.getState().restore(db, existing.id);
+          });
         },
       },
     ]);

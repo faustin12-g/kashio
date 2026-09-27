@@ -4,7 +4,6 @@ import type { NewTransaction, Transaction } from '../models/types';
 import * as transactionsRepository from '../repositories/transactionsRepository';
 import type { TransactionFilter } from '../repositories/transactionsRepository';
 import { checkBudgetAlerts } from '../services/budgetAlertRunner';
-import { useAccountsStore } from './accountsStore';
 import { useCategoriesStore } from './categoriesStore';
 
 interface TransactionsState {
@@ -15,6 +14,8 @@ interface TransactionsState {
   create: (db: SQLiteDatabase, input: NewTransaction) => Promise<void>;
   update: (db: SQLiteDatabase, id: string, changes: Partial<NewTransaction>) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  /** Undoes a delete within the short window the "Undo" toast offers. */
+  restore: (db: SQLiteDatabase, id: string) => Promise<void>;
 }
 
 export const useTransactionsStore = create<TransactionsState>((set, get) => ({
@@ -30,7 +31,6 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
   create: async (db, input) => {
     await transactionsRepository.createTransaction(db, input);
     await get().load(db);
-    void useAccountsStore.getState().load(db);
     void useCategoriesStore.getState().load(db);
     void checkBudgetAlerts(db);
   },
@@ -38,14 +38,19 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
   update: async (db, id, changes) => {
     await transactionsRepository.updateTransaction(db, id, changes);
     await get().load(db);
-    void useAccountsStore.getState().load(db);
     void checkBudgetAlerts(db);
   },
 
   remove: async (db, id) => {
     await transactionsRepository.deleteTransaction(db, id);
     await get().load(db);
-    void useAccountsStore.getState().load(db);
+    void checkBudgetAlerts(db);
+  },
+
+  restore: async (db, id) => {
+    await transactionsRepository.restoreTransaction(db, id);
+    await get().load(db);
+    void useCategoriesStore.getState().load(db);
     void checkBudgetAlerts(db);
   },
 }));

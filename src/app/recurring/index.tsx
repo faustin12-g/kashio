@@ -15,6 +15,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { useCategoriesStore } from '../../store/categoriesStore';
 import { useRecurringStore } from '../../store/recurringStore';
 import { nextOccurrence } from '../../services/recurring';
+import { fonts } from '../../constants/fonts';
 
 export default function RecurringScreen() {
   const theme = useTheme();
@@ -59,7 +60,7 @@ export default function RecurringScreen() {
             >
               <View style={styles.dueTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+                  <Text style={{ color: theme.text, fontSize: 16, fontFamily: fonts.bold }} numberOfLines={1}>
                     {nameOf(rule.note, rule.categoryId)}
                   </Text>
                   <Text style={{ color: theme.textMuted, fontSize: 13 }}>
@@ -71,7 +72,7 @@ export default function RecurringScreen() {
                   style={{
                     color: rule.type === 'income' ? theme.income : theme.expense,
                     fontSize: 17,
-                    fontWeight: '800',
+                    fontFamily: fonts.extrabold,
                   }}
                 >
                   {rule.type === 'income' ? '+' : '−'}
@@ -126,7 +127,7 @@ export default function RecurringScreen() {
 
 const styles = StyleSheet.create({
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold },
   dueCard: { borderRadius: 16, borderWidth: 2, padding: spacing.lg, gap: 12 },
   dueTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dueButtons: { flexDirection: 'row', gap: 10 },

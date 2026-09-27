@@ -9,7 +9,7 @@
 
 export type EntryType = 'expense' | 'income';
 
-export type BudgetPeriod = 'weekly' | 'monthly';
+export type BudgetPeriod = 'weekly' | 'monthly' | 'once';
 
 /** A spending/income category, e.g. "Groceries", "Salary". */
 export interface Category {
@@ -36,8 +36,11 @@ export interface Transaction {
   categoryId: string | null; // null = uncategorized
   note: string;
   date: string; // ISO 8601 date (yyyy-MM-dd), the date the spend happened
-  accountId: string | null; // which account the money moved in, if the user tracks accounts
   recurringId: string | null; // set when this was created automatically by a recurring rule
+  /** True for the one entry that records "money I already had" when tracking started. */
+  isOpeningBalance: boolean;
+  /** Local file path to a photo of the receipt, if one was attached. Not guaranteed to exist on another device. */
+  receiptUri: string | null;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null; // soft delete, kept for sync tombstones
@@ -45,20 +48,21 @@ export interface Transaction {
 
 export type NewTransaction = Omit<
   Transaction,
-  'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'accountId' | 'recurringId'
+  'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'recurringId' | 'isOpeningBalance' | 'receiptUri'
 > & {
-  accountId?: string | null;
   recurringId?: string | null;
+  isOpeningBalance?: boolean;
+  receiptUri?: string | null;
 };
 
-/** A recurring spending limit, either overall or per category. */
+/** A spending limit: either resetting every week/month, or a one-time cap that never resets. */
 export interface Budget {
   id: string;
   categoryId: string | null; // null = applies to overall spending
   amountLimitMinor: number;
   currency: string;
   period: BudgetPeriod;
-  startDate: string; // ISO date the budget period anchors to
+  startDate: string; // ISO date the budget period anchors to (or simply began, for "once")
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -70,7 +74,7 @@ export type NewBudget = Omit<Budget, 'id' | 'createdAt' | 'updatedAt' | 'deleted
 export interface BudgetProgress {
   budget: Budget;
   periodStart: string;
-  periodEnd: string;
+  periodEnd: string | null; // null for a "once" budget: it never ends on its own
   spentMinor: number;
   remainingMinor: number;
   percentUsed: number; // 0-100+, can exceed 100 if over budget
@@ -93,41 +97,6 @@ export interface SyncState {
   lastRestoreAt: number | null;
   lastError: string | null;
 }
-
-export type AccountType = 'cash' | 'bank' | 'mobile_money' | 'savings' | 'other';
-
-/** A place money is kept: a wallet, a bank account, a mobile money account. */
-export interface Account {
-  id: string;
-  name: string;
-  type: AccountType;
-  icon: string; // icon name
-  color: string;
-  openingBalanceMinor: number; // what it held when the user started tracking it; may be negative
-  isArchived: boolean;
-  createdAt: number;
-  updatedAt: number;
-  deletedAt: number | null;
-}
-
-export type NewAccount = Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isArchived'> & {
-  isArchived?: boolean;
-};
-
-/** Money moved between two of the user's own accounts. Not income and not spending. */
-export interface Transfer {
-  id: string;
-  fromAccountId: string;
-  toAccountId: string;
-  amountMinor: number;
-  note: string;
-  date: string;
-  createdAt: number;
-  updatedAt: number;
-  deletedAt: number | null;
-}
-
-export type NewTransfer = Omit<Transfer, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 
 /** A savings target, e.g. "New phone". */
 export interface Goal {
@@ -198,7 +167,6 @@ export interface Recurring {
   type: EntryType;
   amountMinor: number;
   categoryId: string | null;
-  accountId: string | null;
   note: string;
   frequency: RecurringFrequency;
   startDate: string; // the first occurrence; later ones are counted from here
@@ -215,6 +183,21 @@ export type NewRecurring = Omit<
   'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'generatedCount' | 'isActive'
 > & { isActive?: boolean };
 
+/** Kinds of thing Kashio can log to the in-app notification history. */
+export type NotificationKind = 'budget' | 'recurring' | 'reminder' | 'debt';
+
+/** One notification Kashio has sent, kept locally so "Notifications" has something to show. Not synced to Drive. */
+export interface NotificationLogEntry {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  /** Where tapping it should go, e.g. "/budgets". Optional. */
+  route: string | null;
+  createdAt: number;
+  readAt: number | null;
+}
+
 /** Shape of the JSON file written to the user's Google Drive. */
 export interface BackupPayload {
   schemaVersion: number;
@@ -226,8 +209,6 @@ export interface BackupPayload {
   transactions: Transaction[];
   budgets: Budget[];
   // Added in schema 2. Older backups simply do not have them.
-  accounts?: Account[];
-  transfers?: Transfer[];
   goals?: Goal[];
   goalContributions?: GoalContribution[];
   debts?: Debt[];

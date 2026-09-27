@@ -89,6 +89,11 @@ export async function deleteBudget(db: SQLiteDatabase, id: string): Promise<void
   await db.runAsync('UPDATE budgets SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
 }
 
+/** Undoes a soft delete, within the short window the "Undo" toast offers. */
+export async function restoreBudget(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE budgets SET deleted_at = NULL, updated_at = ? WHERE id = ?', Date.now(), id);
+}
+
 /** All rows including soft-deleted ones — used for backup export/merge, never for UI lists. */
 export async function listAllForBackup(db: SQLiteDatabase): Promise<Budget[]> {
   const rows = await db.getAllAsync<BudgetRow>('SELECT * FROM budgets');

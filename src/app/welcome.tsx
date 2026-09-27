@@ -22,34 +22,28 @@ import {
   ChartIllustration,
   CoinsIllustration,
   SafeIllustration,
+  TapToStartIllustration,
 } from '../components/WelcomeIllustrations';
-import { ACCOUNT_TYPE_STYLE } from '../constants/accountTypes';
 import { CURRENCY_OPTIONS } from '../constants/currencies';
 import { fonts } from '../constants/fonts';
 import { useTheme } from '../constants/theme';
 import { LANGUAGE_NAMES, resolveLanguage, type Language } from '../i18n';
 import { useTranslation } from '../i18n/useTranslation';
-import { useAccountsStore } from '../store/accountsStore';
 import { useBudgetsStore } from '../store/budgetsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatAmountForInput, parseAmountToMinor, parseSignedAmountToMinor, sanitizeAmountInput } from '../utils/money';
 import { todayIso } from '../utils/date';
-import type { AccountType } from '../models/types';
+import { setOpeningBalanceTransaction } from '../repositories/transactionsRepository';
 
 const LANGUAGES = Object.keys(LANGUAGE_NAMES) as Language[];
 
-const STARTER_ACCOUNTS: { type: AccountType; labelKey: 'wel.cash' | 'wel.mobileMoney' | 'wel.bank' }[] = [
-  { type: 'cash', labelKey: 'wel.cash' },
-  { type: 'mobile_money', labelKey: 'wel.mobileMoney' },
-  { type: 'bank', labelKey: 'wel.bank' },
-];
-
-type SlideKey = 's1' | 's2' | 's3' | 's4';
+type SlideKey = 's1' | 's2' | 's3' | 's4' | 's5';
 const SLIDES: { key: SlideKey; Illustration: React.ComponentType }[] = [
   { key: 's1', Illustration: CoinsIllustration },
   { key: 's2', Illustration: BudgetIllustration },
   { key: 's3', Illustration: ChartIllustration },
   { key: 's4', Illustration: SafeIllustration },
+  { key: 's5', Illustration: TapToStartIllustration },
 ];
 /** Page 0 is the greeting with the language choice, then one page per slide. */
 const PAGE_COUNT = SLIDES.length + 1;
@@ -279,12 +273,11 @@ function Setup() {
   const db = useSQLiteContext();
   const { t } = useTranslation();
   const settings = useSettingsStore();
-  const createAccount = useAccountsStore((state) => state.create);
   const createBudget = useBudgetsStore((state) => state.create);
   const keyboardHeight = useKeyboardHeight();
 
   const [step, setStep] = useState(0);
-  const [balances, setBalances] = useState<Record<string, string>>({});
+  const [startingAmount, setStartingAmount] = useState('');
   const [budgetText, setBudgetText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -301,13 +294,9 @@ function Setup() {
     setError(null);
     setSaving(true);
     try {
-      for (const { type, labelKey } of STARTER_ACCOUNTS) {
-        const text = balances[type]?.trim();
-        if (!text) continue;
-        const openingBalanceMinor = parseSignedAmountToMinor(text);
-        if (Number.isNaN(openingBalanceMinor)) continue;
-        const style = ACCOUNT_TYPE_STYLE[type];
-        await createAccount(db, { name: t(labelKey), type, icon: style.icon, color: style.color, openingBalanceMinor });
+      const startingMinor = startingAmount.trim() ? parseSignedAmountToMinor(startingAmount) : 0;
+      if (!Number.isNaN(startingMinor) && startingMinor !== 0) {
+        await setOpeningBalanceTransaction(db, startingMinor);
       }
       if (limit > 0) {
         await createBudget(db, {
@@ -330,7 +319,7 @@ function Setup() {
     step === 0
       ? { icon: 'cash-multiple', title: t('wel.currency') }
       : step === 1
-        ? { icon: 'wallet-outline', title: t('wel.accountsTitle'), hint: t('wel.accountsHint') }
+        ? { icon: 'wallet-outline', title: t('wel.startingTitle'), hint: t('wel.startingHint') }
         : { icon: 'bullseye-arrow', title: t('wel.budgetTitle'), hint: t('wel.budgetHint') };
 
   return (
@@ -398,44 +387,17 @@ function Setup() {
           )}
 
           {step === 1 && (
-            <View style={{ gap: 12 }}>
-              {STARTER_ACCOUNTS.map(({ type, labelKey }) => {
-                const style = ACCOUNT_TYPE_STYLE[type];
-                return (
-                  <View
-                    key={type}
-                    style={[styles.accountCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                  >
-                    <View style={[styles.accountIcon, { backgroundColor: style.color + '22' }]}>
-                      <Icon name={style.icon} size={24} color={style.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: theme.text }}>{t(labelKey)}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: theme.textMuted }}>
-                        {t('wel.balance')}
-                      </Text>
-                    </View>
-                    <View style={styles.balanceBox}>
-                      <TextInput
-                        value={formatAmountForInput(balances[type] ?? '')}
-                        onChangeText={(text) =>
-                          setBalances((current) => ({
-                            ...current,
-                            [type]: sanitizeAmountInput(text, current[type] ?? '', true),
-                          }))
-                        }
-                        keyboardType="numbers-and-punctuation"
-                        placeholder="0"
-                        placeholderTextColor={theme.textMuted}
-                        style={{ fontFamily: fonts.bold, fontSize: 18, color: theme.text, textAlign: 'right', minWidth: 90 }}
-                      />
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: theme.textMuted, textAlign: 'right' }}>
-                        {settings.currency}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
+            <View style={[styles.budgetBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: theme.textMuted }}>{t('wel.balance')}</Text>
+              <TextInput
+                value={formatAmountForInput(startingAmount)}
+                onChangeText={(text) => setStartingAmount(sanitizeAmountInput(text, startingAmount, true))}
+                keyboardType="numbers-and-punctuation"
+                placeholder="0"
+                placeholderTextColor={theme.textMuted}
+                style={{ fontFamily: fonts.extrabold, fontSize: 32, color: theme.text, textAlign: 'center' }}
+              />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: theme.textMuted }}>{settings.currency}</Text>
             </View>
           )}
 
@@ -537,9 +499,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
-  accountCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
-  accountIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  balanceBox: { alignItems: 'flex-end' },
   budgetBox: { alignItems: 'center', gap: 6, padding: 24, borderRadius: 20, borderWidth: 1 },
   setupBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8 },
   backButton: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

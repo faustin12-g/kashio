@@ -20,13 +20,19 @@ another device.
 - **Home and Insights** — income, spending and balance at a glance; a six
   month trend, comparison with last month, and the biggest changes.
 - **Accounts** — Cash, Bank, Mobile money and more, with balances and
-  transfers between them.
+  transfers between them. Money you already have when you start is recorded
+  as a normal, dated transaction, not a hidden number, so it shows up in the
+  transaction list and in whatever month it was added. Kashio warns (without
+  blocking) before a transaction, transfer, or recurring item would take an
+  account below zero.
+- **Notifications** — a bell in the header opens a history of everything
+  Kashio has sent: budget alerts, recurring reminders, and debt due dates.
 - **Savings goals** and **Debts** — track progress towards a target, and
   money lent or borrowed with due dates and payments.
 - **Recurring items** — rent, salary and subscriptions remind you when they
   are due. Nothing touches your balance until you tap Record.
-- **Daily reminder**, **app lock** (fingerprint, face, PIN or pattern),
-  **light / dark / phone theme**.
+- **Daily reminder**, **app lock** (fingerprint, face, PIN or pattern, with
+  a choice of how long before it re-locks), **light / dark / phone theme**.
 - **Languages** — English, Français and Kinyarwanda.
 - **Export** — a CSV spreadsheet or a PDF report to share.
 - **Google Drive backup** — one Google sign-in, then "Back up now" /

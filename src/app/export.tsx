@@ -14,12 +14,12 @@ import { useTheme } from '../constants/theme';
 import { useMoney } from '../hooks/useMoney';
 import { categoryDisplayName, formatDateForLanguage } from '../i18n';
 import { useTranslation } from '../i18n/useTranslation';
-import { useAccountsStore } from '../store/accountsStore';
 import { useCategoriesStore } from '../store/categoriesStore';
 import { listTransactions } from '../repositories/transactionsRepository';
 import { buildCsv, buildReportHtml, type ExportRow } from '../services/exportBuilders';
 import { getSummary } from '../services/summary';
 import { toIsoDate } from '../utils/date';
+import { fonts } from '../constants/fonts';
 
 type ExportFormat = 'csv' | 'pdf';
 type ExportRange = 'thisMonth' | 'last3' | 'thisYear' | 'all';
@@ -43,7 +43,6 @@ export default function ExportScreen() {
   const { t, language } = useTranslation();
   const money = useMoney();
   const categories = useCategoriesStore((state) => state.categories);
-  const accounts = useAccountsStore((state) => state.accounts);
 
   const [exportFormat, setExportFormat] = useState<ExportFormat>('csv');
   const [range, setRange] = useState<ExportRange>('thisMonth');
@@ -61,20 +60,26 @@ export default function ExportScreen() {
       const dates = rangeDates(range);
       // Oldest first reads naturally in a spreadsheet or report.
       const transactions = (await listTransactions(db, dates)).slice().reverse();
-      const rows: ExportRow[] = transactions.map((transaction) => {
-        const category = categories.find((entry) => entry.id === transaction.categoryId);
-        const account = accounts.find((entry) => entry.id === transaction.accountId);
-        return {
-          date: transaction.date,
-          type: transaction.type,
-          category: category ? categoryDisplayName(category.name, t) : t('tx.uncategorized'),
-          account: account?.name ?? '',
-          amountMinor: transaction.amountMinor,
-          note: transaction.note,
-        };
-      });
+      const rows: ExportRow[] = transactions.map((transaction) => ({
+        date: transaction.date,
+        type: transaction.type,
+        category: transaction.isOpeningBalance
+          ? t('tx.openingBalance')
+          : transaction.categoryId
+            ? categoryDisplayName(categories.find((entry) => entry.id === transaction.categoryId)?.name ?? '', t)
+            : t('tx.uncategorized'),
+        amountMinor: transaction.amountMinor,
+        note: transaction.note,
+      }));
 
       const stamp = format(new Date(), 'yyyy-MM-dd');
+      const rangeSlug: Record<ExportRange, string> = {
+        thisMonth: 'this-month',
+        last3: 'last-3-months',
+        thisYear: 'this-year',
+        all: 'all-time',
+      };
+      const baseName = `kashio-${rangeSlug[range]}-${stamp}`;
       let uri: string;
       let mimeType: string;
 
@@ -85,13 +90,12 @@ export default function ExportScreen() {
             date: t('exp.colDate'),
             type: t('exp.colType'),
             category: t('exp.colCategory'),
-            account: t('exp.colAccount'),
             amount: t('exp.colAmount'),
             note: t('exp.colNote'),
           },
           { expense: t('form.expense'), income: t('form.income') }
         );
-        const file = new File(Paths.cache, `kashio-${stamp}.csv`);
+        const file = new File(Paths.cache, `${baseName}.csv`);
         file.create({ overwrite: true });
         file.write(csv);
         uri = file.uri;
@@ -115,9 +119,10 @@ export default function ExportScreen() {
             balance: t('home.balance'),
             date: t('exp.colDate'),
             category: t('exp.colCategory'),
-            account: t('exp.colAccount'),
             note: t('exp.colNote'),
-            amount: t('exp.colAmount'),
+            colExpense: t('exp.colExpense'),
+            colIncome: t('exp.colIncome'),
+            total: t('exp.colTotal'),
             empty: t('exp.empty'),
             generatedBy: t('exp.madeWith'),
           },
@@ -130,7 +135,11 @@ export default function ExportScreen() {
           logoDataUri: LOGO_DATA_URI,
         });
         const printed = await Print.printToFileAsync({ html });
-        uri = printed.uri;
+        // expo-print names the file something opaque (e.g. a random id); give it
+        // a name that means something before it reaches a share sheet or Files app.
+        const named = new File(Paths.cache, `${baseName}.pdf`);
+        await new File(printed.uri).copy(named, { overwrite: true });
+        uri = named.uri;
         mimeType = 'application/pdf';
       }
 
@@ -147,7 +156,7 @@ export default function ExportScreen() {
       <Stack.Screen options={{ title: t('exp.title') }} />
       <Text style={{ color: theme.textMuted }}>{t('exp.intro')}</Text>
 
-      <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase' }}>
+      <Text style={{ color: theme.textMuted, fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase' }}>
         {t('exp.format')}
       </Text>
       <ChipGroup
@@ -162,7 +171,7 @@ export default function ExportScreen() {
         {exportFormat === 'csv' ? t('exp.csvHint') : t('exp.pdfHint')}
       </Text>
 
-      <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase' }}>
+      <Text style={{ color: theme.textMuted, fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase' }}>
         {t('exp.range')}
       </Text>
       <ChipGroup

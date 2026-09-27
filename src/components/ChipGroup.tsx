@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
+import { fonts } from '../constants/fonts';
 
 export interface ChipOption<T extends string> {
   value: T;
@@ -35,7 +36,7 @@ export function ChipGroup<T extends string>({ options, value, onChange }: ChipGr
             ]}
           >
             {option.icon && <Icon name={option.icon} size={16} color={color} />}
-            <Text style={{ color, fontWeight: '600', fontSize: 14 }}>{option.label}</Text>
+            <Text style={{ color, fontFamily: fonts.semibold, fontSize: 14 }}>{option.label}</Text>
           </Pressable>
         );
       })}

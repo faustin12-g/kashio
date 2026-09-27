@@ -3,14 +3,19 @@ import {
   addMonths,
   endOfMonth,
   endOfWeek,
+  endOfYear,
   format,
   formatDistanceToNow,
   startOfMonth,
   startOfWeek,
+  startOfYear,
   isWithinInterval,
   parseISO,
 } from 'date-fns';
 import type { BudgetPeriod } from '../models/types';
+
+/** The two periods that actually reset on a schedule; a "once" budget has no period to compute here. */
+type ResettingBudgetPeriod = Exclude<BudgetPeriod, 'once'>;
 
 /** Today as an ISO date string (yyyy-MM-dd), in the device's local time. */
 export function todayIso(): string {
@@ -36,7 +41,7 @@ export function formatDisplayDate(iso: string): string {
  * weekday/day-of-month.
  */
 export function currentPeriodRange(
-  period: BudgetPeriod,
+  period: ResettingBudgetPeriod,
   anchorIso: string,
   referenceIso: string = todayIso()
 ): { start: string; end: string } {
@@ -54,6 +59,33 @@ export function currentPeriodRange(
   const start = startOfMonth(reference);
   const end = endOfMonth(reference);
   return { start: toIsoDate(start), end: toIsoDate(end) };
+}
+
+/**
+ * The [start, end] ISO dates of the day, calendar week (Monday–Sunday),
+ * month or year containing `reference` (defaults to today). Unlike
+ * `currentPeriodRange`, this is not anchored to anything the user chose —
+ * it is the everyday sense of "this week" / "this year", used for Home's
+ * period switcher.
+ */
+export function calendarPeriodRange(
+  period: 'day' | 'week' | 'month' | 'year',
+  referenceIso: string = todayIso()
+): { start: string; end: string } {
+  const reference = parseISO(referenceIso);
+  if (period === 'day') {
+    return { start: referenceIso, end: referenceIso };
+  }
+  if (period === 'week') {
+    return {
+      start: toIsoDate(startOfWeek(reference, { weekStartsOn: 1 })),
+      end: toIsoDate(endOfWeek(reference, { weekStartsOn: 1 })),
+    };
+  }
+  if (period === 'year') {
+    return { start: toIsoDate(startOfYear(reference)), end: toIsoDate(endOfYear(reference)) };
+  }
+  return { start: toIsoDate(startOfMonth(reference)), end: toIsoDate(endOfMonth(reference)) };
 }
 
 export function isDateWithinRange(dateIso: string, startIso: string, endIso: string): boolean {

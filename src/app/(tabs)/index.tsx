@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
@@ -8,7 +8,7 @@ import { SummaryCard, type SummaryPeriod } from '../../components/SummaryCard';
 import { BudgetProgressCard } from '../../components/BudgetProgressCard';
 import { TransactionRow } from '../../components/TransactionRow';
 import { EmptyState } from '../../components/EmptyState';
-import { Icon, type IconName } from '../../components/Icon';
+import { Icon } from '../../components/Icon';
 import { useTheme, spacing } from '../../constants/theme';
 import { useMoney } from '../../hooks/useMoney';
 import { categoryDisplayName } from '../../i18n';
@@ -16,12 +16,19 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { useTransactionsStore } from '../../store/transactionsStore';
 import { useCategoriesStore } from '../../store/categoriesStore';
 import { useBudgetsStore } from '../../store/budgetsStore';
-import { useAccountsStore } from '../../store/accountsStore';
+import { useDebtsStore } from '../../store/debtsStore';
 import { useRecurringStore } from '../../store/recurringStore';
 import { useSyncStore } from '../../store/syncStore';
 import { buildSummary, getSummary, type Summary } from '../../services/summary';
-import { currentPeriodRange, todayIso } from '../../utils/date';
+import { debtRemaining } from '../../services/goalsAndDebts';
+import { calendarPeriodRange, todayIso } from '../../utils/date';
 import { sumByCategory } from '../../repositories/transactionsRepository';
+import { fonts } from '../../constants/fonts';
+
+/** `calendarPeriodRange` names its bounds start/end; the summary and filter helpers expect from/to. */
+function rangeFor({ start, end }: { start: string; end: string }): { from: string; to: string } {
+  return { from: start, to: end };
+}
 
 export default function DashboardScreen() {
   const theme = useTheme();
@@ -35,35 +42,50 @@ export default function DashboardScreen() {
   const categories = useCategoriesStore((state) => state.categories);
   const budgetProgress = useBudgetsStore((state) => state.progress);
   const loadBudgets = useBudgetsStore((state) => state.load);
-  const accounts = useAccountsStore((state) => state.accounts);
-  const balances = useAccountsStore((state) => state.balances);
-  const loadAccounts = useAccountsStore((state) => state.load);
+  const debts = useDebtsStore((state) => state.debts);
+  const loadDebts = useDebtsStore((state) => state.load);
   const syncAccount = useSyncStore((state) => state.account);
   const dueCount = useRecurringStore((state) => state.dueItems.length);
   const loadRecurring = useRecurringStore((state) => state.load);
 
-  const [monthTotals, setMonthTotals] = React.useState<{ categoryId: string | null; totalMinor: number }[]>([]);
+  const [periodTotals, setPeriodTotals] = React.useState<{ categoryId: string | null; totalMinor: number }[]>([]);
   const [summaryPeriod, setSummaryPeriod] = React.useState<SummaryPeriod>('all');
   const [summaries, setSummaries] = React.useState<Record<SummaryPeriod, Summary>>({
     all: buildSummary(0, 0),
+    today: buildSummary(0, 0),
+    week: buildSummary(0, 0),
     month: buildSummary(0, 0),
+    year: buildSummary(0, 0),
   });
 
-  const { start, end } = useMemo(() => currentPeriodRange('monthly', todayIso()), []);
+  // "Recent activity" always shows this calendar month, independent of the period switcher above.
+  const { start, end } = useMemo(() => calendarPeriodRange('month', todayIso()), []);
+  // The summary card and the donut chart below it follow whichever period is selected.
+  // `calendarPeriodRange` calls the same idea "day"; the UI calls it "today".
+  const selectedRange: { start?: string; end?: string } = useMemo(
+    () =>
+      summaryPeriod === 'all'
+        ? {}
+        : calendarPeriodRange(summaryPeriod === 'today' ? 'day' : summaryPeriod, todayIso()),
+    [summaryPeriod]
+  );
 
   const refresh = useCallback(async () => {
     await Promise.all([
       loadTransactions(db, { from: start, to: end }),
       loadBudgets(db),
-      loadAccounts(db),
+      loadDebts(db),
       loadRecurring(db),
-      sumByCategory(db, { from: start, to: end, type: 'expense' }).then(setMonthTotals),
+      sumByCategory(db, { from: selectedRange.start, to: selectedRange.end, type: 'expense' }).then(setPeriodTotals),
       Promise.all([
-        getSummary(db, {}, { includeOpeningBalance: true }),
-        getSummary(db, { from: start, to: end }),
-      ]).then(([all, month]) => setSummaries({ all, month })),
+        getSummary(db, {}),
+        getSummary(db, rangeFor(calendarPeriodRange('day', todayIso()))),
+        getSummary(db, rangeFor(calendarPeriodRange('week', todayIso()))),
+        getSummary(db, rangeFor(calendarPeriodRange('month', todayIso()))),
+        getSummary(db, rangeFor(calendarPeriodRange('year', todayIso()))),
+      ]).then(([all, today, week, month, year]) => setSummaries({ all, today, week, month, year })),
     ]);
-  }, [db, start, end, loadTransactions, loadBudgets, loadAccounts, loadRecurring]);
+  }, [db, start, end, selectedRange, loadTransactions, loadBudgets, loadDebts, loadRecurring]);
 
   useFocusEffect(
     useCallback(() => {
@@ -72,11 +94,10 @@ export default function DashboardScreen() {
   );
 
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
-  const accountById = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [accounts]);
 
   const donutSegments = useMemo(
     () =>
-      monthTotals
+      periodTotals
         .filter((entry) => entry.categoryId && entry.totalMinor > 0)
         .map((entry) => {
           const category = categoryById.get(entry.categoryId!);
@@ -88,10 +109,31 @@ export default function DashboardScreen() {
           };
         })
         .sort((a, b) => b.valueMinor - a.valueMinor),
-    [monthTotals, categoryById, theme.textMuted, t]
+    [periodTotals, categoryById, theme.textMuted, t]
   );
 
+  const periodLabel = {
+    all: t('home.allTime'),
+    today: t('common.today'),
+    week: t('home.thisWeek'),
+    month: t('home.thisMonth'),
+    year: t('home.thisYear'),
+  }[summaryPeriod];
+
   const recentTransactions = transactions.slice(0, 5);
+
+  const debtTotals = useMemo(() => {
+    let owedToMe = 0;
+    let iOwe = 0;
+    for (const { debt, paidMinor } of debts) {
+      const remaining = debtRemaining(debt.amountMinor, paidMinor);
+      if (remaining <= 0) continue;
+      if (debt.direction === 'owed_to_me') owedToMe += remaining;
+      else iOwe += remaining;
+    }
+    return { owedToMe, iOwe };
+  }, [debts]);
+  const hasDebts = debtTotals.owedToMe > 0 || debtTotals.iOwe > 0;
 
   const fabNode = (
     <Pressable
@@ -117,30 +159,29 @@ export default function DashboardScreen() {
             size={14}
             color={syncAccount ? theme.textMuted : theme.warning}
           />
-          <Text style={{ fontSize: 12, color: syncAccount ? theme.textMuted : theme.warning, fontWeight: '600' }}>
+          <Text style={{ fontSize: 12, color: syncAccount ? theme.textMuted : theme.warning, fontFamily: fonts.semibold }}>
             {syncAccount ? t('home.synced') : t('home.notBackedUp')}
           </Text>
         </Pressable>
       </View>
 
-      <SummaryCard summary={summaries[summaryPeriod]} period={summaryPeriod} onPeriodChange={setSummaryPeriod} />
-
-      <View style={styles.quickRow}>
-        {(['expense', 'income'] as const).map((type) => {
-          const color = type === 'expense' ? theme.expense : theme.income;
-          return (
-            <Pressable
-              key={type}
-              onPress={() => router.push({ pathname: '/transactions/new', params: { type } })}
-              accessibilityRole="button"
-              style={[styles.quickButton, { backgroundColor: color + '18', borderColor: color + '44' }]}
-            >
-              <Icon name="plus" size={18} color={color} />
-              <Text style={{ color, fontWeight: '700' }}>{type === 'expense' ? t('form.expense') : t('form.income')}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SummaryCard
+        summary={summaries[summaryPeriod]}
+        period={summaryPeriod}
+        onPeriodChange={setSummaryPeriod}
+        onPressIncome={() =>
+          router.push({
+            pathname: '/transactions',
+            params: { type: 'income', ...(summaryPeriod !== 'all' ? { datePreset: summaryPeriod } : {}) },
+          })
+        }
+        onPressSpent={() =>
+          router.push({
+            pathname: '/transactions',
+            params: { type: 'expense', ...(summaryPeriod !== 'all' ? { datePreset: summaryPeriod } : {}) },
+          })
+        }
+      />
 
       {dueCount > 0 && (
         <Pressable
@@ -149,43 +190,40 @@ export default function DashboardScreen() {
           style={[styles.dueBanner, { backgroundColor: theme.primary + '18', borderColor: theme.primary + '55' }]}
         >
           <Icon name="bell-ring-outline" size={20} color={theme.primary} />
-          <Text style={{ flex: 1, color: theme.text, fontWeight: '600' }}>{t('rec.dueBanner', { count: dueCount })}</Text>
+          <Text style={{ flex: 1, color: theme.text, fontFamily: fonts.semibold }}>{t('rec.dueBanner', { count: dueCount })}</Text>
           <Icon name="chevron-right" size={20} color={theme.textMuted} />
         </Pressable>
       )}
 
-      {accounts.length > 0 && (
+      {hasDebts && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('home.accounts')}</Text>
-            <Link href="/accounts" style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('home.debts')}</Text>
+            <Link href="/debts" style={{ color: theme.primary, fontSize: 13, fontFamily: fonts.semibold }}>
               {t('home.seeAll')}
             </Link>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accountsRow}>
-            {accounts.map((account) => (
-              <Pressable
-                key={account.id}
-                onPress={() => router.push('/accounts')}
-                style={[styles.accountCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              >
-                <View style={[styles.accountIcon, { backgroundColor: account.color + '22' }]}>
-                  <Icon name={account.icon as IconName} size={18} color={account.color} />
-                </View>
-                <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>
-                  {account.name}
-                </Text>
-                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
-                  {money(balances[account.id] ?? account.openingBalanceMinor)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <View style={styles.debtRow}>
+            <Pressable onPress={() => router.push('/debts')} style={[styles.debtCard, { backgroundColor: theme.surfaceAlt }]}>
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontFamily: fonts.semibold }}>{t('debt.totalOwedToMe')}</Text>
+              <Text style={{ color: theme.income, fontSize: 18, fontFamily: fonts.bold }} numberOfLines={1}>
+                {money(debtTotals.owedToMe)}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/debts')} style={[styles.debtCard, { backgroundColor: theme.surfaceAlt }]}>
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontFamily: fonts.semibold }}>{t('debt.totalIOwe')}</Text>
+              <Text style={{ color: theme.expense, fontSize: 18, fontFamily: fonts.bold }} numberOfLines={1}>
+                {money(debtTotals.iOwe)}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.cardTitle, { color: theme.textMuted }]}>{t('home.spendingByCategory')}</Text>
+        <Text style={[styles.cardTitle, { color: theme.textMuted }]}>
+          {t('home.spendingByCategory')} · {periodLabel}
+        </Text>
         <CategoryDonutChart segments={donutSegments} />
         {donutSegments.length > 0 && (
           <View style={styles.legend}>
@@ -206,7 +244,7 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('home.budgets')}</Text>
-            <Link href="/budgets" style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>
+            <Link href="/budgets" style={{ color: theme.primary, fontSize: 13, fontFamily: fonts.semibold }}>
               {t('home.seeAll')}
             </Link>
           </View>
@@ -223,7 +261,7 @@ export default function DashboardScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('home.recentActivity')}</Text>
-          <Link href="/transactions" style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>
+          <Link href="/transactions" style={{ color: theme.primary, fontSize: 13, fontFamily: fonts.semibold }}>
             {t('home.seeAll')}
           </Link>
         </View>
@@ -240,7 +278,6 @@ export default function DashboardScreen() {
                 key={transaction.id}
                 transaction={transaction}
                 category={transaction.categoryId ? (categoryById.get(transaction.categoryId) ?? null) : null}
-                account={transaction.accountId ? (accountById.get(transaction.accountId) ?? null) : null}
                 onPress={() => router.push(`/transactions/${transaction.id}`)}
               />
             ))}
@@ -254,7 +291,7 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  greeting: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   syncBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -264,25 +301,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, alignItems: 'center', gap: spacing.md },
-  cardTitle: { alignSelf: 'flex-start', fontSize: 13, fontWeight: '600' },
+  cardTitle: { alignSelf: 'flex-start', fontSize: 13, fontFamily: fonts.semibold },
   legend: { width: '100%', gap: 8 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendLabel: { flex: 1, fontSize: 13 },
   section: { gap: spacing.sm },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
-  quickRow: { flexDirection: 'row', gap: 10 },
-  quickButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold },
   dueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -291,9 +317,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  accountsRow: { gap: 10 },
-  accountCard: { width: 150, borderRadius: 14, borderWidth: 1, padding: 12, gap: 4 },
-  accountIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  debtRow: { flexDirection: 'row', gap: 10 },
+  debtCard: { flex: 1, borderRadius: 14, padding: 12, gap: 4 },
   fab: {
     position: 'absolute',
     right: 20,

@@ -2,6 +2,7 @@ import {
   dueOccurrences,
   nextOccurrence,
   occurrenceDate,
+  occurrencesInRange,
   recurringTransactionId,
   upcomingOccurrences,
 } from '../../src/services/recurring';
@@ -121,5 +122,38 @@ describe('upcomingOccurrences', () => {
 
   it('is empty for a paused item', () => {
     expect(upcomingOccurrences(monthly({ isActive: false }), 3)).toEqual([]);
+  });
+});
+
+describe('occurrencesInRange', () => {
+  it('lists every occurrence that falls inside the range, past or future', () => {
+    const rule = monthly({ startDate: '2026-01-15' });
+    expect(occurrencesInRange(rule, '2026-03-01', '2026-05-31')).toEqual([
+      { index: 2, date: '2026-03-15' },
+      { index: 3, date: '2026-04-15' },
+      { index: 4, date: '2026-05-15' },
+    ]);
+  });
+
+  it('leaves out occurrences already recorded or skipped', () => {
+    const rule = monthly({ startDate: '2026-01-15', generatedCount: 3 });
+    expect(occurrencesInRange(rule, '2026-01-01', '2026-04-30')).toEqual([{ index: 3, date: '2026-04-15' }]);
+  });
+
+  it('is empty when the range misses every occurrence', () => {
+    const rule = monthly({ startDate: '2026-01-15' });
+    expect(occurrencesInRange(rule, '2026-01-16', '2026-02-14')).toEqual([]);
+  });
+
+  it('stops at the end date', () => {
+    const rule = monthly({ startDate: '2026-01-15', endDate: '2026-02-20' });
+    expect(occurrencesInRange(rule, '2026-01-01', '2026-12-31')).toEqual([
+      { index: 0, date: '2026-01-15' },
+      { index: 1, date: '2026-02-15' },
+    ]);
+  });
+
+  it('is empty for a paused item', () => {
+    expect(occurrencesInRange(monthly({ isActive: false }), '2026-01-01', '2026-12-31')).toEqual([]);
   });
 });

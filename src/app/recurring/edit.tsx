@@ -5,21 +5,19 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { CategorySelect } from '../../components/CategorySelect';
-import type { IconName } from '../../components/Icon';
 import { ChipGroup } from '../../components/ChipGroup';
 import { DateField } from '../../components/DateField';
-import { OptionField } from '../../components/OptionField';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { TextField } from '../../components/TextField';
 import { useTheme } from '../../constants/theme';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useSettingsStore } from '../../store/settingsStore';
-import { useAccountsStore } from '../../store/accountsStore';
 import { useActiveCategories } from '../../store/categoriesStore';
 import { useRecurringStore } from '../../store/recurringStore';
 import { minorToInputString, parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 import type { EntryType, RecurringFrequency } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 const FREQUENCIES: RecurringFrequency[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -32,14 +30,12 @@ export default function EditRecurringScreen() {
   const { t } = useTranslation();
   const currency = useSettingsStore((state) => state.currency);
   const categories = useActiveCategories();
-  const accounts = useAccountsStore((state) => state.accounts);
   const { rules, create, update, remove } = useRecurringStore();
   const existing = id ? rules.find((rule) => rule.id === id) : undefined;
 
   const [type, setType] = useState<EntryType>('expense');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [accountId, setAccountId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [frequency, setFrequency] = useState<RecurringFrequency>('monthly');
   const [startDate, setStartDate] = useState(todayIso());
@@ -54,7 +50,6 @@ export default function EditRecurringScreen() {
     setType(existing.type);
     setAmount(minorToInputString(existing.amountMinor));
     setCategoryId(existing.categoryId);
-    setAccountId(existing.accountId);
     setNote(existing.note);
     setFrequency(existing.frequency);
     setStartDate(existing.startDate);
@@ -73,7 +68,6 @@ export default function EditRecurringScreen() {
         type,
         amountMinor,
         categoryId,
-        accountId,
         note: note.trim(),
         frequency,
         startDate,
@@ -139,25 +133,9 @@ export default function EditRecurringScreen() {
         onSelect={setCategoryId}
         type={type}
       />
-      {accounts.length > 0 && (
-        <OptionField
-          label={t('form.account')}
-          title={t('acc.selectAccount')}
-          placeholder={t('form.noAccount')}
-          noneLabel={t('form.noAccount')}
-          value={accountId}
-          onChange={setAccountId}
-          options={accounts.map((account) => ({
-            id: account.id,
-            label: account.name,
-            icon: account.icon as IconName,
-            color: account.color,
-          }))}
-        />
-      )}
       <TextField label={t('form.note')} value={note} onChangeText={setNote} placeholder={t('form.notePlaceholder')} />
 
-      <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase' }}>
+      <Text style={{ color: theme.textMuted, fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase' }}>
         {t('rec.frequency')}
       </Text>
       <ChipGroup

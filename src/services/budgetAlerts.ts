@@ -62,7 +62,8 @@ export function buildAlertMessage(input: AlertMessageInput, t: TFunction): { tit
   const budget = input.categoryName
     ? t('alert.budgetOf', { name: categoryDisplayName(input.categoryName, t) })
     : t('alert.overallBudget');
-  const when = input.period === 'weekly' ? t('alert.thisWeek') : t('alert.thisMonth');
+  const when =
+    input.period === 'weekly' ? t('alert.thisWeek') : input.period === 'once' ? t('alert.total') : t('alert.thisMonth');
   const amounts = t('alert.amounts', {
     spent: formatMoney(input.spentMinor, input.currency),
     limit: formatMoney(input.limitMinor, input.currency),
@@ -77,4 +78,24 @@ export function buildAlertMessage(input: AlertMessageInput, t: TFunction): { tit
 /** Key under which the "already alerted" level is remembered for one budget in one period. */
 export function alertMemoryKey(budgetId: string, periodStart: string): string {
   return `budget_alert:${budgetId}:${periodStart}`;
+}
+
+/** The text shown for the notification about the total across every combinable budget. */
+export function buildTotalAlertMessage(
+  input: { threshold: number; spentMinor: number; limitMinor: number; currency: string },
+  t: TFunction
+): { title: string; body: string } {
+  const amounts = t('alert.amounts', {
+    spent: formatMoney(input.spentMinor, input.currency),
+    limit: formatMoney(input.limitMinor, input.currency),
+  });
+  return {
+    title: input.threshold >= 100 ? t('alert.titleLimit') : t('alert.title'),
+    body: t('alert.totalBody', { percent: input.threshold, amounts }),
+  };
+}
+
+/** Key under which the "already alerted" level is remembered for the combined total. */
+export function totalAlertMemoryKey(periodStart: string): string {
+  return `budget_alert:TOTAL:${periodStart}`;
 }

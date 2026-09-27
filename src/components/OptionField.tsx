@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../constants/theme';
 import { useTranslation } from '../i18n/useTranslation';
 import { Icon, type IconName } from './Icon';
+import { fonts } from '../constants/fonts';
 
 export interface FieldOption {
   id: string;
@@ -108,7 +109,7 @@ export function OptionField({ label, title, options, value, onChange, placeholde
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -129,8 +130,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  sheetTitle: { fontSize: 18, fontWeight: '700' },
+  sheetTitle: { fontSize: 18, fontFamily: fonts.bold },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 20 },
   rowText: { flex: 1 },
-  rowTitle: { fontSize: 15, fontWeight: '500' },
+  rowTitle: { fontSize: 15, fontFamily: fonts.semibold },
 });

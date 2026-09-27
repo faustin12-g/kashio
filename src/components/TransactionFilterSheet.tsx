@@ -7,13 +7,14 @@ import { categoryDisplayName } from '../i18n';
 import { useTranslation } from '../i18n/useTranslation';
 import { EMPTY_FILTER, type DatePreset, type FilterState } from '../services/txFilter';
 import { todayIso } from '../utils/date';
-import type { Account, Category } from '../models/types';
+import type { Category } from '../models/types';
 import { Button } from './Button';
 import { DateField } from './DateField';
 import { Icon, type IconName } from './Icon';
 import { OptionField } from './OptionField';
 import { SegmentedControl } from './SegmentedControl';
 import { TextField } from './TextField';
+import { fonts } from '../constants/fonts';
 
 interface TransactionFilterSheetProps {
   visible: boolean;
@@ -21,7 +22,6 @@ interface TransactionFilterSheetProps {
   state: FilterState;
   onChange: (state: FilterState) => void;
   categories: Category[];
-  accounts: Account[];
 }
 
 /** The filter options for the transaction list. Changes apply to the list straight away. */
@@ -31,7 +31,6 @@ export function TransactionFilterSheet({
   state,
   onChange,
   categories,
-  accounts,
 }: TransactionFilterSheetProps) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -40,6 +39,8 @@ export function TransactionFilterSheet({
 
   const presets: { value: DatePreset; label: string }[] = [
     { value: 'all', label: t('common.all') },
+    { value: 'today', label: t('common.today') },
+    { value: 'week', label: t('home.thisWeek') },
     { value: 'month', label: t('home.thisMonth') },
     { value: 'last30', label: t('tx.last30') },
     { value: 'year', label: t('tx.thisYear') },
@@ -87,23 +88,6 @@ export function TransactionFilterSheet({
               }))}
             />
 
-            {accounts.length > 0 && (
-              <OptionField
-                label={t('tx.account')}
-                title={t('acc.selectAccount')}
-                value={state.accountId}
-                onChange={(accountId) => set({ accountId })}
-                placeholder={t('tx.anyAccount')}
-                noneLabel={t('tx.anyAccount')}
-                options={accounts.map((account) => ({
-                  id: account.id,
-                  label: account.name,
-                  icon: account.icon as IconName,
-                  color: account.color,
-                }))}
-              />
-            )}
-
             <View style={styles.group}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t('tx.dates')}</Text>
               <View style={styles.chips}>
@@ -125,7 +109,7 @@ export function TransactionFilterSheet({
                         { backgroundColor: selected ? theme.primary : theme.surfaceAlt, borderColor: theme.border },
                       ]}
                     >
-                      <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '600', fontSize: 13 }}>
+                      <Text style={{ color: selected ? theme.primaryText : theme.text, fontFamily: fonts.semibold, fontSize: 13 }}>
                         {preset.label}
                       </Text>
                     </Pressable>
@@ -207,10 +191,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: { fontSize: 18, fontFamily: fonts.bold },
   body: { paddingHorizontal: 20, paddingVertical: 8, gap: 18 },
   group: { gap: 8 },
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
   pair: { flexDirection: 'row', gap: 10 },

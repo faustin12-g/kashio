@@ -9,12 +9,6 @@ import {
 } from '../repositories/transactionsRepository';
 import { listAllForBackup as listAllBudgets, upsertBudgetFromBackup } from '../repositories/budgetsRepository';
 import {
-  listAllAccountsForBackup,
-  listAllTransfersForBackup,
-  upsertAccountFromBackup,
-  upsertTransferFromBackup,
-} from '../repositories/accountsRepository';
-import {
   listAllContributionsForBackup,
   listAllGoalsForBackup,
   upsertContributionFromBackup,
@@ -44,8 +38,6 @@ export async function buildBackupPayload(db: SQLiteDatabase): Promise<BackupPayl
     categories,
     transactions,
     budgets,
-    accounts,
-    transfers,
     goals,
     goalContributions,
     debts,
@@ -56,8 +48,6 @@ export async function buildBackupPayload(db: SQLiteDatabase): Promise<BackupPayl
     listCategories(db, { includeArchived: true }),
     listAllTransactions(db),
     listAllBudgets(db),
-    listAllAccountsForBackup(db),
-    listAllTransfersForBackup(db),
     listAllGoalsForBackup(db),
     listAllContributionsForBackup(db),
     listAllDebtsForBackup(db),
@@ -74,8 +64,6 @@ export async function buildBackupPayload(db: SQLiteDatabase): Promise<BackupPayl
     categories,
     transactions,
     budgets,
-    accounts,
-    transfers,
     goals,
     goalContributions,
     debts,
@@ -177,8 +165,6 @@ async function restoreWithToken(
     categories,
     transactions,
     budgets,
-    accounts,
-    transfers,
     goals,
     contributions,
     debts,
@@ -188,8 +174,6 @@ async function restoreWithToken(
     listCategories(db, { includeArchived: true }),
     listAllTransactions(db),
     listAllBudgets(db),
-    listAllAccountsForBackup(db),
-    listAllTransfersForBackup(db),
     listAllGoalsForBackup(db),
     listAllContributionsForBackup(db),
     listAllDebtsForBackup(db),
@@ -197,13 +181,11 @@ async function restoreWithToken(
     listAllRecurringForBackup(db),
   ]);
 
-  // Categories and accounts first, since everything else can point at them.
+  // Categories first, since everything else can point at them.
   const plans = [
     plan(categories, payload.categories, upsertCategoryFromBackup),
-    plan(accounts, payload.accounts, upsertAccountFromBackup),
     plan(transactions, payload.transactions, upsertTransactionFromBackup),
     plan(budgets, payload.budgets, upsertBudgetFromBackup),
-    plan(transfers, payload.transfers, upsertTransferFromBackup),
     plan(goals, payload.goals, upsertGoalFromBackup),
     plan(contributions, payload.goalContributions, upsertContributionFromBackup),
     plan(debts, payload.debts, upsertDebtFromBackup),

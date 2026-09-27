@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../constants/theme';
+import { fonts } from '../constants/fonts';
 
 interface ProgressRingProps {
   /** 0 to 100. */
@@ -43,5 +44,5 @@ export function ProgressRing({ percent, size = 64, strokeWidth = 7, color, label
 }
 
 const styles = StyleSheet.create({
-  label: { position: 'absolute', fontWeight: '800' },
+  label: { position: 'absolute', fontFamily: fonts.extrabold },
 });

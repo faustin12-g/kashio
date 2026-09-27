@@ -11,6 +11,7 @@ import { useMoney } from '../../hooks/useMoney';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useGoalsStore } from '../../store/goalsStore';
 import { goalPercent, isGoalReached } from '../../services/goalsAndDebts';
+import { fonts } from '../../constants/fonts';
 
 export default function GoalsScreen() {
   const theme = useTheme();
@@ -56,7 +57,7 @@ export default function GoalsScreen() {
                     {t('goal.saved', { saved: money(savedMinor), target: money(goal.targetMinor) })}
                   </Text>
                   {reached && (
-                    <Text style={{ color: theme.income, fontSize: 13, fontWeight: '700' }}>{t('goal.reached')}</Text>
+                    <Text style={{ color: theme.income, fontSize: 13, fontFamily: fonts.bold }}>{t('goal.reached')}</Text>
                   )}
                 </View>
               </Pressable>
@@ -80,5 +81,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   text: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: '700' },
+  name: { fontSize: 16, fontFamily: fonts.bold },
 });

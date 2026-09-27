@@ -17,6 +17,7 @@ import { loadInsights, type Change, type Insights } from '../../services/insight
 import { computePace } from '../../services/pace';
 import { describePace } from '../../services/paceText';
 import { todayIso } from '../../utils/date';
+import { fonts } from '../../constants/fonts';
 
 function changeText(change: Change, up: string, down: string, same: string, none: string, t: TFunction): string {
   if (change.percent === null) return none;
@@ -48,6 +49,8 @@ export default function InsightsScreen() {
   };
 
   const paceRows = budgets
+    // A "once" budget never resets, so there is no period end to forecast against.
+    .filter((progress): progress is typeof progress & { periodEnd: string } => progress.periodEnd !== null)
     .map((progress) => {
       const pace = describePace(
         computePace({
@@ -143,7 +146,7 @@ export default function InsightsScreen() {
                         color={category?.color ?? theme.textMuted}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontWeight: '600' }}>{nameOf(change.categoryId)}</Text>
+                        <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>{nameOf(change.categoryId)}</Text>
                         <Text style={{ color: more ? theme.expense : theme.income, fontSize: 12 }}>
                           {t(more ? 'ins.moreThanLast' : 'ins.lessThanLast', { amount: money(Math.abs(change.deltaMinor)) })}
                         </Text>
@@ -164,7 +167,7 @@ export default function InsightsScreen() {
                 return (
                   <View key={entry.categoryId ?? 'none'} style={styles.topRow}>
                     <View style={styles.topHeader}>
-                      <Text style={{ color: theme.text, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                      <Text style={{ color: theme.text, fontFamily: fonts.semibold, flex: 1 }} numberOfLines={1}>
                         {nameOf(entry.categoryId)}
                       </Text>
                       <Text style={{ color: theme.textMuted, fontSize: 13 }}>{money(entry.totalMinor)}</Text>
@@ -195,7 +198,7 @@ export default function InsightsScreen() {
                     size={18}
                     color={category?.color ?? theme.textMuted}
                   />
-                  <Text style={{ color: theme.text, fontWeight: '600' }}>
+                  <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>
                     {category ? categoryDisplayName(category.name, t) : t('bud.overallBudget')}
                   </Text>
                 </View>
@@ -211,13 +214,13 @@ export default function InsightsScreen() {
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.md },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  caption: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  cardTitle: { fontSize: 16, fontFamily: fonts.bold },
+  caption: { fontSize: 12, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   legend: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   changeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  changeText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  changeText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold },
   subsection: { gap: 10 },
   topRow: { gap: 6 },
   topHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },

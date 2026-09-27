@@ -1,6 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { fonts } from '../constants/fonts';
+import { Image } from 'react-native';
 import { useTheme } from '../constants/theme';
 
 const LOGO_BLUE = require('../../assets/logo-mark.png');
@@ -22,19 +21,3 @@ export function Logo({ size = 32 }: LogoProps) {
     />
   );
 }
-
-/** Logo plus app name, used as the Home screen header title. */
-export function BrandTitle() {
-  const theme = useTheme();
-  return (
-    <View style={styles.row}>
-      <Logo size={26} />
-      <Text style={[styles.name, { color: theme.text }]}>Kashio</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontSize: 18, fontFamily: fonts.extrabold },
-});

@@ -1,5 +1,4 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { useAccountsStore } from './accountsStore';
 import { useBudgetsStore } from './budgetsStore';
 import { useCategoriesStore } from './categoriesStore';
 import { useDebtsStore } from './debtsStore';
@@ -18,7 +17,6 @@ export async function reloadAllStores(db: SQLiteDatabase): Promise<void> {
     useCategoriesStore.getState().load(db),
     useTransactionsStore.getState().load(db),
     useBudgetsStore.getState().load(db),
-    useAccountsStore.getState().load(db),
     useGoalsStore.getState().load(db),
     useDebtsStore.getState().load(db),
     useRecurringStore.getState().load(db),

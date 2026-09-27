@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
+import { fonts } from '../constants/fonts';
 
 interface EmptyStateProps {
   icon?: IconName;
@@ -22,6 +23,6 @@ export function EmptyState({ icon = 'note-text-outline', title, message }: Empty
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', paddingVertical: 32, gap: 6 },
-  title: { fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 15, fontFamily: fonts.semibold },
   message: { fontSize: 13, textAlign: 'center', maxWidth: 260 },
 });

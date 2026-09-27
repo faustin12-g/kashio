@@ -17,6 +17,7 @@ import { debtRemaining, debtStatus } from '../../services/goalsAndDebts';
 import { parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 import type { DebtPayment } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,7 +88,7 @@ export default function DebtDetailScreen() {
       <Stack.Screen options={{ title: debt.person }} />
 
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>
+        <Text style={{ color: theme.textMuted, fontSize: 13, fontFamily: fonts.semibold }}>
           {debt.direction === 'owed_to_me' ? t('debt.owedToMe') : t('debt.iOwe')}
         </Text>
         <Text style={[styles.amount, { color: theme.text }]}>{money(debt.amountMinor)}</Text>
@@ -96,11 +97,11 @@ export default function DebtDetailScreen() {
         </View>
         <View style={styles.row}>
           <Text style={{ color: theme.textMuted, fontSize: 13 }}>{t('debt.paid', { amount: money(paidMinor) })}</Text>
-          <Text style={{ color: statusColor, fontSize: 13, fontWeight: '700' }}>
+          <Text style={{ color: statusColor, fontSize: 13, fontFamily: fonts.bold }}>
             {status === 'paid' ? t('debt.settled') : t('debt.remaining', { amount: money(remaining) })}
           </Text>
         </View>
-        {status === 'overdue' && <Text style={{ color: theme.danger, fontWeight: '700' }}>{t('debt.overdue')}</Text>}
+        {status === 'overdue' && <Text style={{ color: theme.danger, fontFamily: fonts.bold }}>{t('debt.overdue')}</Text>}
         {debt.dueDate && (
           <Text style={{ color: theme.textMuted, fontSize: 13 }}>
             {t('debt.dueOn', { date: formatDateForLanguage(debt.dueDate, language) })}
@@ -154,9 +155,9 @@ export default function DebtDetailScreen() {
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: 8 },
-  amount: { fontSize: 30, fontWeight: '800' },
+  amount: { fontSize: 30, fontFamily: fonts.extrabold },
   track: { height: 8, borderRadius: 999, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 999 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold },
 });

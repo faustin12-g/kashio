@@ -10,7 +10,6 @@ import { checkBudgetAlerts } from '../services/budgetAlertRunner';
 import { categoryDisplayName } from '../i18n';
 import { currentTranslation } from '../i18n/useTranslation';
 import { todayIso } from '../utils/date';
-import { useAccountsStore } from './accountsStore';
 import { useTransactionsStore } from './transactionsStore';
 
 export interface DueItem {
@@ -81,7 +80,6 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
     await recordOccurrence(db, item.rule, item.due[0], currency);
     await get().load(db);
     void useTransactionsStore.getState().load(db);
-    void useAccountsStore.getState().load(db);
     void checkBudgetAlerts(db);
   },
 

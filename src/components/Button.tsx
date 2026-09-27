@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '../constants/theme';
+import { fonts } from '../constants/fonts';
 
 interface ButtonProps {
   label: string;
@@ -46,5 +47,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: { fontSize: 16, fontWeight: '600' },
+  label: { fontSize: 16, fontFamily: fonts.semibold },
 });

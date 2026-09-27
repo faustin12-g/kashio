@@ -15,6 +15,14 @@ describe('dateRangeFor', () => {
     expect(dateRangeFor(state({}), TODAY)).toEqual({});
   });
 
+  it('covers just today', () => {
+    expect(dateRangeFor(state({ datePreset: 'today' }), TODAY)).toEqual({ from: TODAY, to: TODAY });
+  });
+
+  it('covers the current calendar week, Monday to Sunday', () => {
+    expect(dateRangeFor(state({ datePreset: 'week' }), TODAY)).toEqual({ from: '2026-09-21', to: '2026-09-27' });
+  });
+
   it('covers the current calendar month', () => {
     expect(dateRangeFor(state({ datePreset: 'month' }), TODAY)).toEqual({ from: '2026-09-01', to: '2026-09-31' });
   });
@@ -46,7 +54,6 @@ describe('buildTransactionFilter', () => {
         search: '  milk ',
         type: 'expense',
         categoryId: 'c1',
-        accountId: 'a1',
         datePreset: 'year',
         minAmount: '10',
         maxAmount: '250.50',
@@ -59,7 +66,6 @@ describe('buildTransactionFilter', () => {
       search: 'milk',
       type: 'expense',
       categoryId: 'c1',
-      accountId: 'a1',
       minMinor: 1000,
       maxMinor: 25050,
     });

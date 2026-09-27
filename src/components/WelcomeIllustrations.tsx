@@ -294,8 +294,51 @@ export function SafeIllustration() {
   );
 }
 
+/** A pulsing "+" button, the same shape as the real one on Home: "getting started". */
+export function TapToStartIllustration() {
+  const theme = useTheme();
+  const pulse = useLoop(1600);
+  const bounce = useFloat(900);
+
+  return (
+    <View style={styles.box}>
+      <Blob color={theme.primary} />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: 116,
+          height: 116,
+          borderRadius: 58,
+          backgroundColor: theme.primary,
+          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] }),
+          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
+        }}
+      />
+      <Animated.View
+        style={{ transform: [{ translateY: bounce.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) }] }}
+      >
+        <View style={[styles.fab, { backgroundColor: theme.primary }]}>
+          <Icon name="plus" size={40} color="#FFFFFF" />
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   box: { width: ILLUSTRATION_SIZE, height: ILLUSTRATION_SIZE, alignItems: 'center', justifyContent: 'center' },
+  fab: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
   center: { alignItems: 'center', justifyContent: 'center' },
   thresholdRow: { position: 'absolute', bottom: 26, flexDirection: 'row', gap: 8 },
   dot: { width: 10, height: 10, borderRadius: 5 },

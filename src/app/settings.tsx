@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { ChipGroup } from '../components/ChipGroup';
 import type { IconName } from '../components/Icon';
+import { TextField } from '../components/TextField';
 import { TimeField } from '../components/TimeField';
 import { useTheme, spacing } from '../constants/theme';
 import { CURRENCY_OPTIONS } from '../constants/currencies';
@@ -13,12 +14,20 @@ import { LANGUAGE_NAMES, formatRelativeTime, type LanguageSetting } from '../i18
 import { useTranslation } from '../i18n/useTranslation';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSyncStore } from '../store/syncStore';
-import { countTransactions } from '../repositories/transactionsRepository';
+import { useTransactionsStore } from '../store/transactionsStore';
+import {
+  countTransactions,
+  getOpeningBalanceTransaction,
+  setOpeningBalanceTransaction,
+} from '../repositories/transactionsRepository';
+import { checkBudgetAlerts } from '../services/budgetAlertRunner';
 import { authenticateOwner, isAppLockAvailable } from '../services/appLock';
 import { LOCK_TIMEOUT_OPTIONS } from '../services/lockRules';
 import { useRecurringStore } from '../store/recurringStore';
 import { registerAutoBackupTask, unregisterAutoBackupTask } from '../services/autoBackup';
 import { syncDailyReminder } from '../services/reminders';
+import { minorToInputString, parseSignedAmountToMinor } from '../utils/money';
+import { fonts } from '../constants/fonts';
 
 const THEME_ICONS: Record<ThemeMode, IconName> = {
   system: 'cellphone',
@@ -33,6 +42,32 @@ export default function SettingsScreen() {
   const settings = useSettingsStore();
   const sync = useSyncStore();
   const [busy, setBusy] = useState<'sign-in' | 'backup' | 'restore' | null>(null);
+
+  // ---------- starting balance ----------
+  // "Money I already had" is only ever asked about on the welcome tour, which an
+  // existing install never sees again — this is the one other place to set or
+  // correct it afterwards.
+  const [startingBalanceText, setStartingBalanceText] = useState('0');
+  const [startingBalanceSaved, setStartingBalanceSaved] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getOpeningBalanceTransaction(db).then((minor) => {
+      if (!cancelled) setStartingBalanceText(minorToInputString(minor));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
+
+  const saveStartingBalance = async () => {
+    const minor = parseSignedAmountToMinor(startingBalanceText);
+    if (Number.isNaN(minor)) return;
+    await setOpeningBalanceTransaction(db, minor);
+    await useTransactionsStore.getState().load(db);
+    void checkBudgetAlerts(db);
+    setStartingBalanceSaved(true);
+    setTimeout(() => setStartingBalanceSaved(false), 2000);
+  };
 
   // ---------- currency ----------
   const changeCurrency = async (code: string) => {
@@ -205,11 +240,26 @@ export default function SettingsScreen() {
                   { backgroundColor: selected ? theme.primary : theme.surfaceAlt, borderColor: theme.border },
                 ]}
               >
-                <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '600' }}>{item.code}</Text>
+                <Text style={{ color: selected ? theme.primaryText : theme.text, fontFamily: fonts.semibold }}>{item.code}</Text>
               </Pressable>
             );
           }}
         />
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('set.startingBalance')}</Text>
+        <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('set.startingBalanceHint')}</Text>
+        <TextField
+          label={t('set.startingBalance')}
+          prefix={settings.currency}
+          value={startingBalanceText}
+          amount="signed"
+          onChangeText={setStartingBalanceText}
+          keyboardType="numbers-and-punctuation"
+          placeholder="0"
+        />
+        <Button label={startingBalanceSaved ? t('common.done') : t('common.save')} onPress={saveStartingBalance} />
       </View>
 
       <View style={styles.section}>
@@ -236,7 +286,7 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('set.security')}</Text>
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
-            <Text style={{ color: theme.text, fontWeight: '600' }}>{t('set.appLock')}</Text>
+            <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>{t('set.appLock')}</Text>
             <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('set.appLockHint')}</Text>
           </View>
           <Switch
@@ -247,7 +297,7 @@ export default function SettingsScreen() {
         </View>
         {settings.appLockEnabled && (
           <View style={{ gap: 8 }}>
-            <Text style={{ color: theme.text, fontWeight: '600' }}>{t('set.lockAfter')}</Text>
+            <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>{t('set.lockAfter')}</Text>
             <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('set.lockAfterHint')}</Text>
             <ChipGroup
               options={LOCK_TIMEOUT_OPTIONS.map((ms) => ({ value: String(ms), label: lockTimeoutLabel(ms) }))}
@@ -292,7 +342,7 @@ export default function SettingsScreen() {
                 <View style={[styles.avatar, { backgroundColor: theme.surfaceAlt }]} />
               )}
               <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.text, fontWeight: '600' }} numberOfLines={1}>
+                <Text style={{ color: theme.text, fontFamily: fonts.semibold }} numberOfLines={1}>
                   {sync.account.name ?? sync.account.email}
                 </Text>
                 <Text style={{ color: theme.textMuted, fontSize: 13 }} numberOfLines={1}>
@@ -325,7 +375,7 @@ export default function SettingsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
-                <Text style={{ color: theme.text, fontWeight: '600' }}>{t('drive.auto')}</Text>
+                <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>{t('drive.auto')}</Text>
                 <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('drive.autoHint')}</Text>
               </View>
               <Switch
@@ -337,7 +387,7 @@ export default function SettingsScreen() {
             {settings.autoBackupEnabled && (
               <View style={styles.switchRow}>
                 <View style={styles.switchText}>
-                  <Text style={{ color: theme.text, fontWeight: '600' }}>{t('drive.wifiOnly')}</Text>
+                  <Text style={{ color: theme.text, fontFamily: fonts.semibold }}>{t('drive.wifiOnly')}</Text>
                   <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>{t('drive.wifiOnlyHint')}</Text>
                 </View>
                 <Switch
@@ -358,7 +408,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   section: { gap: spacing.sm },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold },
   sectionSubtitle: { fontSize: 13, lineHeight: 18 },
   card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.sm },
   currencyChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },

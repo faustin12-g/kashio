@@ -11,6 +11,7 @@ import { filterCategoriesByName, hasCategoryNamed } from '../utils/categorySearc
 import { CategoryFormModal } from './CategoryFormModal';
 import { Icon } from './Icon';
 import type { Category, EntryType } from '../models/types';
+import { fonts } from '../constants/fonts';
 
 interface CategorySelectProps {
   /** Categories to choose from, already limited to the right type (expense/income). */
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  sheetTitle: { fontSize: 18, fontWeight: '700' },
+  sheetTitle: { fontSize: 18, fontFamily: fonts.bold },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,7 +245,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, paddingVertical: 10, fontSize: 15 },
   list: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 20 },
-  rowText: { flex: 1, fontSize: 15, fontWeight: '500' },
+  rowText: { flex: 1, fontSize: 15, fontFamily: fonts.semibold },
   emptyText: { textAlign: 'center', paddingVertical: 24, fontSize: 14 },
   addRow: {
     flexDirection: 'row',
@@ -254,5 +255,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  addText: { flex: 1, fontSize: 15, fontWeight: '600' },
+  addText: { flex: 1, fontSize: 15, fontFamily: fonts.semibold },
 });

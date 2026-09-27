@@ -15,6 +15,7 @@ import { useDebtsStore } from '../../store/debtsStore';
 import { debtRemaining, debtStatus } from '../../services/goalsAndDebts';
 import { todayIso } from '../../utils/date';
 import type { DebtDirection } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 export default function DebtsScreen() {
   const theme = useTheme();
@@ -107,6 +108,6 @@ export default function DebtsScreen() {
 
 const styles = StyleSheet.create({
   total: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: 4 },
-  totalLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  totalValue: { fontSize: 30, fontWeight: '800' },
+  totalLabel: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  totalValue: { fontSize: 30, fontFamily: fonts.extrabold },
 });

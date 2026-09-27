@@ -8,7 +8,6 @@ interface RecurringRow {
   type: Recurring['type'];
   amount_minor: number;
   category_id: string | null;
-  account_id: string | null;
   note: string;
   frequency: Recurring['frequency'];
   start_date: string;
@@ -26,7 +25,6 @@ function fromRow(row: RecurringRow): Recurring {
     type: row.type,
     amountMinor: row.amount_minor,
     categoryId: row.category_id,
-    accountId: row.account_id,
     note: row.note,
     frequency: row.frequency,
     startDate: row.start_date,
@@ -53,7 +51,6 @@ export async function createRecurring(db: SQLiteDatabase, input: NewRecurring): 
     type: input.type,
     amountMinor: input.amountMinor,
     categoryId: input.categoryId,
-    accountId: input.accountId,
     note: input.note,
     frequency: input.frequency,
     startDate: input.startDate,
@@ -66,13 +63,12 @@ export async function createRecurring(db: SQLiteDatabase, input: NewRecurring): 
   };
   await db.runAsync(
     `INSERT INTO recurring
-      (id, type, amount_minor, category_id, account_id, note, frequency, start_date, end_date, generated_count, is_active, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL)`,
+      (id, type, amount_minor, category_id, note, frequency, start_date, end_date, generated_count, is_active, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL)`,
     rule.id,
     rule.type,
     rule.amountMinor,
     rule.categoryId,
-    rule.accountId,
     rule.note,
     rule.frequency,
     rule.startDate,
@@ -96,12 +92,11 @@ export async function updateRecurring(
   if (!current) throw new Error(`Recurring rule ${id} not found`);
   const next = { ...fromRow(current), ...changes };
   await db.runAsync(
-    `UPDATE recurring SET type = ?, amount_minor = ?, category_id = ?, account_id = ?, note = ?, frequency = ?,
+    `UPDATE recurring SET type = ?, amount_minor = ?, category_id = ?, note = ?, frequency = ?,
        start_date = ?, end_date = ?, is_active = ?, updated_at = ? WHERE id = ?`,
     next.type,
     next.amountMinor,
     next.categoryId,
-    next.accountId,
     next.note,
     next.frequency,
     next.startDate,
@@ -138,7 +133,6 @@ export async function upsertRecurringFromBackup(db: SQLiteDatabase, rule: Recurr
     type: rule.type,
     amount_minor: rule.amountMinor,
     category_id: rule.categoryId,
-    account_id: rule.accountId,
     note: rule.note,
     frequency: rule.frequency,
     start_date: rule.startDate,

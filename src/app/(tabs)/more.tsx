@@ -16,11 +16,11 @@ export default function MoreScreen() {
     <Screen>
       <View style={styles.group}>
         <ListRow
-          icon="wallet-outline"
-          color="#10B981"
-          title={t('more.accounts')}
-          subtitle={t('more.accountsHint')}
-          onPress={() => router.push('/accounts')}
+          icon="calendar-month-outline"
+          color="#6366F1"
+          title={t('more.calendar')}
+          subtitle={t('more.calendarHint')}
+          onPress={() => router.push('/calendar')}
           showChevron
         />
         <ListRow
@@ -72,6 +72,14 @@ export default function MoreScreen() {
           title={t('more.settings')}
           subtitle={t('more.settingsHint')}
           onPress={() => router.push('/settings')}
+          showChevron
+        />
+        <ListRow
+          icon="information-outline"
+          color={theme.textMuted}
+          title={t('more.about')}
+          subtitle={t('more.aboutHint')}
+          onPress={() => router.push('/about')}
           showChevron
         />
       </View>

@@ -4,6 +4,7 @@ import Svg, { Circle, G } from 'react-native-svg';
 import { useTheme } from '../constants/theme';
 import { useMoney } from '../hooks/useMoney';
 import { useTranslation } from '../i18n/useTranslation';
+import { fonts } from '../constants/fonts';
 
 export interface DonutSegment {
   id: string;
@@ -97,7 +98,7 @@ export function CategoryDonutChart({ segments, size = 180, strokeWidth = 22 }: C
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
   centerLabel: { position: 'absolute', alignItems: 'center' },
-  centerValue: { fontSize: 16, fontWeight: '700' },
+  centerValue: { fontSize: 16, fontFamily: fonts.bold },
   centerCaption: { fontSize: 11 },
   emptyWrap: { alignItems: 'center', justifyContent: 'center' },
 });

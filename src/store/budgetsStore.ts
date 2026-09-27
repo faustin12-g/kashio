@@ -13,6 +13,8 @@ interface BudgetsState {
   create: (db: SQLiteDatabase, input: NewBudget) => Promise<void>;
   update: (db: SQLiteDatabase, id: string, changes: Partial<NewBudget>) => Promise<void>;
   remove: (db: SQLiteDatabase, id: string) => Promise<void>;
+  /** Undoes a delete within the short window the "Undo" toast offers. */
+  restore: (db: SQLiteDatabase, id: string) => Promise<void>;
 }
 
 export const useBudgetsStore = create<BudgetsState>((set, get) => ({
@@ -42,6 +44,11 @@ export const useBudgetsStore = create<BudgetsState>((set, get) => ({
 
   remove: async (db, id) => {
     await budgetsRepository.deleteBudget(db, id);
+    await get().load(db);
+  },
+
+  restore: async (db, id) => {
+    await budgetsRepository.restoreBudget(db, id);
     await get().load(db);
   },
 }));

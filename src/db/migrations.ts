@@ -177,6 +177,81 @@ const MIGRATIONS: string[] = [
   ALTER TABLE transactions ADD COLUMN recurring_id TEXT;
   CREATE INDEX idx_transactions_account ON transactions(account_id);
   `,
+
+  // v4: "money you already had" becomes a real, dated transaction instead of
+  // a hidden account field, so it shows up in the transaction list and in
+  // whatever period contains its date. Existing accounts are backfilled: one
+  // transaction per account with a non-zero opening balance, dated from the
+  // account's created_at (a UTC-based approximation — good enough for a
+  // one-off historical backfill). Also adds the local notification history.
+  `
+  ALTER TABLE transactions ADD COLUMN is_opening_balance INTEGER NOT NULL DEFAULT 0;
+
+  INSERT INTO transactions
+    (id, amount_minor, currency, type, category_id, note, date, account_id, recurring_id, is_opening_balance, created_at, updated_at, deleted_at)
+  SELECT
+    'opening:' || a.id,
+    ABS(a.opening_balance_minor),
+    COALESCE((SELECT value FROM meta WHERE key = 'default_currency'), 'USD'),
+    CASE WHEN a.opening_balance_minor < 0 THEN 'expense' ELSE 'income' END,
+    NULL,
+    '',
+    date(a.created_at / 1000, 'unixepoch'),
+    a.id,
+    NULL,
+    1,
+    a.created_at,
+    a.created_at,
+    NULL
+  FROM accounts a
+  WHERE a.opening_balance_minor != 0;
+
+  UPDATE accounts SET opening_balance_minor = 0 WHERE opening_balance_minor != 0;
+
+  CREATE TABLE notification_log (
+    id TEXT PRIMARY KEY NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    route TEXT,
+    created_at INTEGER NOT NULL,
+    read_at INTEGER
+  );
+  CREATE INDEX idx_notification_log_created ON notification_log(created_at);
+  `,
+
+  // v5: accounts are gone (the app tracks one pool of money, not where it's
+  // kept) and a receipt photo can be attached to a transaction. The old
+  // accounts/transfers tables and the transactions.account_id /
+  // recurring.account_id columns are left in place rather than dropped —
+  // SQLite can add columns but not cheaply remove them, and nothing reads
+  // these any more, so leaving them is harmless.
+  `
+  ALTER TABLE transactions ADD COLUMN receipt_uri TEXT;
+  UPDATE accounts SET deleted_at = created_at WHERE deleted_at IS NULL;
+  UPDATE transfers SET deleted_at = created_at WHERE deleted_at IS NULL;
+  `,
+
+  // v6: the budgets table only allowed 'weekly' and 'monthly', so a one-time
+  // budget could not be saved. SQLite cannot change a CHECK rule in place, so
+  // the table is rebuilt with the wider rule and its rows copied across.
+  `
+  CREATE TABLE budgets_new (
+    id TEXT PRIMARY KEY NOT NULL,
+    category_id TEXT REFERENCES categories(id) ON DELETE CASCADE,
+    amount_limit_minor INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    period TEXT NOT NULL CHECK (period IN ('weekly', 'monthly', 'once')),
+    start_date TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+  );
+  INSERT INTO budgets_new SELECT id, category_id, amount_limit_minor, currency, period, start_date, created_at, updated_at, deleted_at FROM budgets;
+  DROP TABLE budgets;
+  ALTER TABLE budgets_new RENAME TO budgets;
+  CREATE INDEX idx_budgets_category ON budgets(category_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

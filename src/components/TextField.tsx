@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { formatAmountForInput, sanitizeAmountInput } from '../utils/money';
+import { fonts } from '../constants/fonts';
 
 interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
@@ -42,8 +43,8 @@ export function TextField({ label, prefix, amount, ...inputProps }: TextFieldPro
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   box: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14 },
-  prefix: { fontSize: 15, fontWeight: '600' },
+  prefix: { fontSize: 15, fontFamily: fonts.semibold },
   input: { flex: 1, paddingVertical: 12, fontSize: 15 },
 });

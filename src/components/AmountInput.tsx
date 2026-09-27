@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { formatAmountForInput, sanitizeAmountInput } from '../utils/money';
+import { fonts } from '../constants/fonts';
 
 interface AmountInputProps {
   value: string;
@@ -32,6 +33,6 @@ export function AmountInput({ value, onChangeText, currency, autoFocus }: Amount
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  currency: { fontSize: 20, fontWeight: '600' },
-  input: { fontSize: 40, fontWeight: '700', minWidth: 120 },
+  currency: { fontSize: 20, fontFamily: fonts.semibold },
+  input: { fontSize: 40, fontFamily: fonts.bold, minWidth: 120 },
 });

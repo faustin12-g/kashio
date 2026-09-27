@@ -109,6 +109,11 @@ export async function deleteGoal(db: SQLiteDatabase, id: string): Promise<void> 
   await db.runAsync('UPDATE goals SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
 }
 
+/** Undoes a soft delete, within the short window the "Undo" toast offers. */
+export async function restoreGoal(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE goals SET deleted_at = NULL, updated_at = ? WHERE id = ?', Date.now(), id);
+}
+
 export async function listContributions(db: SQLiteDatabase, goalId: string): Promise<GoalContribution[]> {
   const rows = await db.getAllAsync<ContributionRow>(
     'SELECT * FROM goal_contributions WHERE goal_id = ? AND deleted_at IS NULL ORDER BY date DESC, created_at DESC',

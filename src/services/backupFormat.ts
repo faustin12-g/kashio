@@ -1,6 +1,6 @@
 import type { BackupPayload } from '../models/types';
 
-/** 1 = the original format. 2 = adds accounts, transfers, goals, debts, recurring rules and the currency. */
+/** 1 = the original format. 2 = adds goals, debts, recurring rules and the currency. */
 export const BACKUP_SCHEMA_VERSION = 2;
 
 /**
@@ -34,8 +34,6 @@ export function parseBackupPayload(raw: string): BackupPayload {
     categories: payload.categories,
     transactions: payload.transactions,
     budgets: payload.budgets,
-    accounts: payload.accounts ?? [],
-    transfers: payload.transfers ?? [],
     goals: payload.goals ?? [],
     goalContributions: payload.goalContributions ?? [],
     debts: payload.debts ?? [],

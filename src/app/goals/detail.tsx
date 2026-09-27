@@ -18,6 +18,7 @@ import { goalPercent, isGoalReached, monthlyAmountNeeded } from '../../services/
 import { parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 import type { GoalContribution } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -97,7 +98,7 @@ export default function GoalDetailScreen() {
           {t('goal.saved', { saved: money(savedMinor), target: money(goal.targetMinor) })}
         </Text>
         {reached ? (
-          <Text style={{ color: theme.income, fontWeight: '700' }}>{t('goal.reached')}</Text>
+          <Text style={{ color: theme.income, fontFamily: fonts.bold }}>{t('goal.reached')}</Text>
         ) : monthly !== null ? (
           <Text style={{ color: theme.textMuted, textAlign: 'center' }}>
             {t('goal.monthlyNeeded', { amount: money(monthly) })}
@@ -153,8 +154,8 @@ export default function GoalDetailScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 8, paddingVertical: 8 },
-  saved: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  saved: { fontSize: 18, fontFamily: fonts.bold, textAlign: 'center' },
   buttons: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold },
 });

@@ -13,6 +13,7 @@ import { categoryDisplayName } from '../../i18n';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useCategoriesStore } from '../../store/categoriesStore';
 import type { EntryType } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
@@ -49,7 +50,7 @@ export default function CategoriesScreen() {
               onPress={() => setTab(option)}
               style={[styles.tab, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
             >
-              <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
+              <Text style={{ color: selected ? theme.primaryText : theme.text, fontFamily: fonts.bold }}>
                 {option === 'expense' ? t('cat.expenseTab') : t('cat.incomeTab')}
               </Text>
             </Pressable>
@@ -105,6 +106,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  name: { flex: 1, fontSize: 15, fontWeight: '600' },
+  name: { flex: 1, fontSize: 15, fontFamily: fonts.semibold },
   footer: { padding: spacing.lg },
 });

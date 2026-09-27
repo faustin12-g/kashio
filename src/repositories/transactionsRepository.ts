@@ -1,6 +1,8 @@
 import type { SQLiteBindValue, SQLiteDatabase } from 'expo-sqlite';
 import type { NewTransaction, Transaction } from '../models/types';
 import { generateId } from '../utils/id';
+import { getMeta, META_KEYS } from './metaRepository';
+import { todayIso } from '../utils/date';
 
 interface TransactionRow {
   id: string;
@@ -10,8 +12,9 @@ interface TransactionRow {
   category_id: string | null;
   note: string;
   date: string;
-  account_id: string | null;
   recurring_id: string | null;
+  is_opening_balance: number;
+  receipt_uri: string | null;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -26,8 +29,9 @@ function fromRow(row: TransactionRow): Transaction {
     categoryId: row.category_id,
     note: row.note,
     date: row.date,
-    accountId: row.account_id,
     recurringId: row.recurring_id,
+    isOpeningBalance: row.is_opening_balance === 1,
+    receiptUri: row.receipt_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -38,12 +42,13 @@ export interface TransactionFilter {
   from?: string; // inclusive ISO date
   to?: string; // inclusive ISO date
   categoryId?: string;
-  accountId?: string;
   type?: 'expense' | 'income';
   /** Matches the note or the category name, ignoring case. */
   search?: string;
   minMinor?: number;
   maxMinor?: number;
+  /** Leaves out the one "money I already had" entry. */
+  excludeOpeningBalance?: boolean;
 }
 
 /** Escapes % and _ so a search for "50%" matches the text "50%" and not "50 anything". */
@@ -68,10 +73,6 @@ export function buildWhere(filter: TransactionFilter): { clause: string; params:
     clauses.push('category_id = ?');
     params.push(filter.categoryId);
   }
-  if (filter.accountId) {
-    clauses.push('account_id = ?');
-    params.push(filter.accountId);
-  }
   if (filter.type) {
     clauses.push('type = ?');
     params.push(filter.type);
@@ -83,6 +84,9 @@ export function buildWhere(filter: TransactionFilter): { clause: string; params:
   if (filter.maxMinor !== undefined) {
     clauses.push('amount_minor <= ?');
     params.push(filter.maxMinor);
+  }
+  if (filter.excludeOpeningBalance) {
+    clauses.push('is_opening_balance = 0');
   }
   const search = filter.search?.trim();
   if (search) {
@@ -134,16 +138,17 @@ export async function createTransaction(
     categoryId: input.categoryId,
     note: input.note,
     date: input.date,
-    accountId: input.accountId ?? null,
     recurringId: input.recurringId ?? null,
+    isOpeningBalance: input.isOpeningBalance ?? false,
+    receiptUri: input.receiptUri ?? null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
   };
   await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-      (id, amount_minor, currency, type, category_id, note, date, account_id, recurring_id, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      (id, amount_minor, currency, type, category_id, note, date, recurring_id, is_opening_balance, receipt_uri, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     transaction.id,
     transaction.amountMinor,
     transaction.currency,
@@ -151,8 +156,9 @@ export async function createTransaction(
     transaction.categoryId,
     transaction.note,
     transaction.date,
-    transaction.accountId,
     transaction.recurringId,
+    transaction.isOpeningBalance ? 1 : 0,
+    transaction.receiptUri,
     transaction.createdAt,
     transaction.updatedAt
   );
@@ -166,15 +172,10 @@ export async function updateTransaction(
 ): Promise<void> {
   const current = await getTransaction(db, id);
   if (!current) throw new Error(`Transaction ${id} not found`);
-  const next = {
-    ...current,
-    ...changes,
-    accountId: changes.accountId === undefined ? current.accountId : changes.accountId,
-    updatedAt: Date.now(),
-  };
+  const next = { ...current, ...changes, updatedAt: Date.now() };
   await db.runAsync(
     `UPDATE transactions
-     SET amount_minor = ?, currency = ?, type = ?, category_id = ?, note = ?, date = ?, account_id = ?, updated_at = ?
+     SET amount_minor = ?, currency = ?, type = ?, category_id = ?, note = ?, date = ?, receipt_uri = ?, updated_at = ?
      WHERE id = ?`,
     next.amountMinor,
     next.currency,
@@ -182,7 +183,7 @@ export async function updateTransaction(
     next.categoryId,
     next.note,
     next.date,
-    next.accountId,
+    next.receiptUri,
     next.updatedAt,
     id
   );
@@ -192,6 +193,11 @@ export async function updateTransaction(
 export async function deleteTransaction(db: SQLiteDatabase, id: string): Promise<void> {
   const now = Date.now();
   await db.runAsync('UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
+}
+
+/** Undoes a soft delete, within the short window the "Undo" toast offers. */
+export async function restoreTransaction(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE transactions SET deleted_at = NULL, updated_at = ? WHERE id = ?', Date.now(), id);
 }
 
 export interface CategoryTotal {
@@ -266,6 +272,33 @@ export async function monthlyTotals(db: SQLiteDatabase, fromMonth: string): Prom
   return [...byMonth.values()];
 }
 
+export interface DailyTotal {
+  date: string; // yyyy-MM-dd
+  incomeMinor: number;
+  expenseMinor: number;
+}
+
+/** Income and spending per day within an inclusive date range, for the calendar. Days with nothing are omitted. */
+export async function dailyTotals(db: SQLiteDatabase, fromIso: string, toIso: string): Promise<DailyTotal[]> {
+  const rows = await db.getAllAsync<{ date: string; type: 'expense' | 'income'; total: number }>(
+    `SELECT date, type, SUM(amount_minor) AS total
+     FROM transactions
+     WHERE deleted_at IS NULL AND date >= ? AND date <= ?
+     GROUP BY date, type
+     ORDER BY date`,
+    fromIso,
+    toIso
+  );
+  const byDate = new Map<string, DailyTotal>();
+  for (const row of rows) {
+    const entry = byDate.get(row.date) ?? { date: row.date, incomeMinor: 0, expenseMinor: 0 };
+    if (row.type === 'income') entry.incomeMinor = row.total;
+    else entry.expenseMinor = row.total;
+    byDate.set(row.date, entry);
+  }
+  return [...byDate.values()];
+}
+
 /** How many times each category has been used, so the most used ones can be offered first. */
 export async function categoryUsage(db: SQLiteDatabase): Promise<Record<string, number>> {
   const rows = await db.getAllAsync<{ category_id: string; uses: number }>(
@@ -280,7 +313,6 @@ export interface RecentEntry {
   categoryId: string | null;
   amountMinor: number;
   note: string;
-  accountId: string | null;
 }
 
 /** The most recent distinct entries, for a one-tap "add this again". */
@@ -290,12 +322,11 @@ export async function recentDistinctEntries(db: SQLiteDatabase, limit: number): 
     category_id: string | null;
     amount_minor: number;
     note: string;
-    account_id: string | null;
   }>(
-    `SELECT type, category_id, amount_minor, note, account_id, MAX(created_at) AS latest
+    `SELECT type, category_id, amount_minor, note, MAX(created_at) AS latest
      FROM transactions
-     WHERE deleted_at IS NULL AND recurring_id IS NULL
-     GROUP BY type, category_id, amount_minor, note, account_id
+     WHERE deleted_at IS NULL AND recurring_id IS NULL AND is_opening_balance = 0
+     GROUP BY type, category_id, amount_minor, note
      ORDER BY latest DESC
      LIMIT ?`,
     limit
@@ -305,7 +336,6 @@ export async function recentDistinctEntries(db: SQLiteDatabase, limit: number): 
     categoryId: row.category_id,
     amountMinor: row.amount_minor,
     note: row.note,
-    accountId: row.account_id,
   }));
 }
 
@@ -334,8 +364,8 @@ export async function upsertTransactionFromBackup(
 ): Promise<void> {
   await db.runAsync(
     `INSERT INTO transactions
-      (id, amount_minor, currency, type, category_id, note, date, account_id, recurring_id, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, amount_minor, currency, type, category_id, note, date, recurring_id, is_opening_balance, receipt_uri, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        amount_minor = excluded.amount_minor,
        currency = excluded.currency,
@@ -343,8 +373,9 @@ export async function upsertTransactionFromBackup(
        category_id = excluded.category_id,
        note = excluded.note,
        date = excluded.date,
-       account_id = excluded.account_id,
        recurring_id = excluded.recurring_id,
+       is_opening_balance = excluded.is_opening_balance,
+       receipt_uri = excluded.receipt_uri,
        created_at = excluded.created_at,
        updated_at = excluded.updated_at,
        deleted_at = excluded.deleted_at`,
@@ -355,10 +386,63 @@ export async function upsertTransactionFromBackup(
     transaction.categoryId,
     transaction.note,
     transaction.date,
-    transaction.accountId ?? null,
     transaction.recurringId ?? null,
+    transaction.isOpeningBalance ? 1 : 0,
+    transaction.receiptUri ?? null,
     transaction.createdAt,
     transaction.updatedAt,
     transaction.deletedAt
+  );
+}
+
+const OPENING_BALANCE_ID = 'opening:balance';
+
+/**
+ * The current "money I already had" amount, signed (negative if it was ever
+ * set as a starting shortfall), or 0 if none has been recorded. Settings
+ * reads this to show and let you correct what you first entered.
+ */
+export async function getOpeningBalanceTransaction(db: SQLiteDatabase): Promise<number> {
+  const transaction = await getTransaction(db, OPENING_BALANCE_ID);
+  if (!transaction) return 0;
+  return transaction.type === 'expense' ? -transaction.amountMinor : transaction.amountMinor;
+}
+
+/**
+ * Records "money I already had" as a normal transaction dated today (rather
+ * than a hidden number), so it shows up in the transaction list and in
+ * whatever month it was added. Editing it later changes only the amount —
+ * the original date is kept. Setting it to 0 removes it.
+ */
+export async function setOpeningBalanceTransaction(db: SQLiteDatabase, amountMinor: number): Promise<void> {
+  const now = Date.now();
+  if (amountMinor === 0) {
+    await db.runAsync(
+      'UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+      now,
+      now,
+      OPENING_BALANCE_ID
+    );
+    return;
+  }
+  const currency = (await getMeta(db, META_KEYS.currency)) ?? 'USD';
+  const type: 'income' | 'expense' = amountMinor >= 0 ? 'income' : 'expense';
+  await db.runAsync(
+    `INSERT INTO transactions
+      (id, amount_minor, currency, type, category_id, note, date, recurring_id, is_opening_balance, receipt_uri, created_at, updated_at, deleted_at)
+     VALUES (?, ?, ?, ?, NULL, '', ?, NULL, 1, NULL, ?, ?, NULL)
+     ON CONFLICT(id) DO UPDATE SET
+       amount_minor = excluded.amount_minor,
+       currency = excluded.currency,
+       type = excluded.type,
+       updated_at = excluded.updated_at,
+       deleted_at = NULL`,
+    OPENING_BALANCE_ID,
+    Math.abs(amountMinor),
+    currency,
+    type,
+    todayIso(),
+    now,
+    now
   );
 }

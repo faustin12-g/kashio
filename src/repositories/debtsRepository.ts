@@ -114,6 +114,11 @@ export async function deleteDebt(db: SQLiteDatabase, id: string): Promise<void> 
   await db.runAsync('UPDATE debts SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
 }
 
+/** Undoes a soft delete, within the short window the "Undo" toast offers. */
+export async function restoreDebt(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE debts SET deleted_at = NULL, updated_at = ? WHERE id = ?', Date.now(), id);
+}
+
 export async function listPayments(db: SQLiteDatabase, debtId: string): Promise<DebtPayment[]> {
   const rows = await db.getAllAsync<PaymentRow>(
     'SELECT * FROM debt_payments WHERE debt_id = ? AND deleted_at IS NULL ORDER BY date DESC, created_at DESC',

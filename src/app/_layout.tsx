@@ -4,8 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { AppDatabaseProvider } from '../db/client';
 import { AppInitializer } from '../components/AppInitializer';
 import { LockGate } from '../components/LockGate';
+import { UndoToast } from '../components/UndoToast';
+import { WhatsNewGate } from '../components/WhatsNewGate';
 import { useTheme } from '../constants/theme';
 import { useSettingsStore } from '../store/settingsStore';
+import { fonts } from '../constants/fonts';
 // Defines the background backup job; Android may start the app just to run it.
 import '../services/autoBackupTask';
 
@@ -20,6 +23,7 @@ function Navigation() {
         screenOptions={{
           headerStyle: { backgroundColor: theme.surface },
           headerTintColor: theme.text,
+          headerTitleStyle: { fontFamily: fonts.bold, fontSize: 18 },
           headerShadowVisible: false,
           contentStyle: { backgroundColor: theme.background },
         }}
@@ -34,6 +38,8 @@ function Navigation() {
           <Stack.Screen name="budgets/new" options={{ presentation: 'modal' }} />
         </Stack.Protected>
       </Stack>
+      <UndoToast />
+      <WhatsNewGate />
     </>
   );
 }

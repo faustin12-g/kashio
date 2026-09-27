@@ -1,15 +1,15 @@
 import { format, parseISO, subDays } from 'date-fns';
 import type { TransactionFilter } from '../repositories/transactionsRepository';
+import { calendarPeriodRange } from '../utils/date';
 import { parseAmountToMinor } from '../utils/money';
 
-export type DatePreset = 'all' | 'month' | 'last30' | 'year' | 'custom';
+export type DatePreset = 'all' | 'today' | 'week' | 'month' | 'last30' | 'year' | 'custom';
 
 /** What the user has chosen on the search and filter screen. */
 export interface FilterState {
   search: string;
   type: 'all' | 'expense' | 'income';
   categoryId: string | null;
-  accountId: string | null;
   datePreset: DatePreset;
   customFrom: string | null;
   customTo: string | null;
@@ -22,7 +22,6 @@ export const EMPTY_FILTER: FilterState = {
   search: '',
   type: 'all',
   categoryId: null,
-  accountId: null,
   datePreset: 'all',
   customFrom: null,
   customTo: null,
@@ -36,6 +35,12 @@ export function dateRangeFor(
   todayIso: string
 ): { from?: string; to?: string } {
   switch (state.datePreset) {
+    case 'today':
+      return { from: todayIso, to: todayIso };
+    case 'week': {
+      const { start, end } = calendarPeriodRange('week', todayIso);
+      return { from: start, to: end };
+    }
     case 'month':
       return { from: `${todayIso.slice(0, 7)}-01`, to: `${todayIso.slice(0, 7)}-31` };
     case 'last30':
@@ -63,7 +68,6 @@ export function buildTransactionFilter(state: FilterState, todayIso: string): Tr
   if (search) filter.search = search;
   if (state.type !== 'all') filter.type = state.type;
   if (state.categoryId) filter.categoryId = state.categoryId;
-  if (state.accountId) filter.accountId = state.accountId;
   const min = optionalAmount(state.minAmount);
   const max = optionalAmount(state.maxAmount);
   if (min !== undefined) filter.minMinor = min;
@@ -76,7 +80,6 @@ export function activeFilterCount(state: FilterState): number {
   let count = 0;
   if (state.type !== 'all') count++;
   if (state.categoryId) count++;
-  if (state.accountId) count++;
   if (state.datePreset !== 'all') count++;
   if (optionalAmount(state.minAmount) !== undefined || optionalAmount(state.maxAmount) !== undefined) count++;
   return count;

@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { parseAmountToMinor } from '../../utils/money';
 import { todayIso } from '../../utils/date';
 import type { BudgetPeriod } from '../../models/types';
+import { fonts } from '../../constants/fonts';
 
 export default function NewBudgetScreen() {
   const theme = useTheme();
@@ -79,7 +80,7 @@ export default function NewBudgetScreen() {
       <View style={{ gap: spacing.sm }}>
         <Text style={[styles.label, { color: theme.textMuted }]}>{t('bud.resets')}</Text>
         <View style={styles.typeSwitch}>
-          {(['weekly', 'monthly'] as const).map((option) => {
+          {(['weekly', 'monthly', 'once'] as const).map((option) => {
             const selected = option === period;
             return (
               <Pressable
@@ -87,8 +88,8 @@ export default function NewBudgetScreen() {
                 onPress={() => setPeriod(option)}
                 style={[styles.typeButton, { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}
               >
-                <Text style={{ color: selected ? theme.primaryText : theme.text, fontWeight: '700' }}>
-                  {option === 'weekly' ? t('bud.weekly') : t('bud.monthly')}
+                <Text style={{ color: selected ? theme.primaryText : theme.text, fontFamily: fonts.bold }}>
+                  {option === 'weekly' ? t('bud.weekly') : option === 'monthly' ? t('bud.monthly') : t('bud.once')}
                 </Text>
               </Pressable>
             );
@@ -104,7 +105,7 @@ export default function NewBudgetScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   amountWrap: { alignItems: 'center', paddingVertical: spacing.lg },
   typeSwitch: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
+import { fonts } from '../constants/fonts';
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -58,5 +59,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  label: { fontSize: 14, fontWeight: '700' },
+  label: { fontSize: 14, fontFamily: fonts.bold },
 });

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { TransactionRow } from '../../components/TransactionRow';
@@ -13,16 +13,17 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useTransactionsStore } from '../../store/transactionsStore';
 import { useCategoriesStore } from '../../store/categoriesStore';
-import { useAccountsStore } from '../../store/accountsStore';
 import { sumsByType } from '../../repositories/transactionsRepository';
 import {
   EMPTY_FILTER,
   activeFilterCount,
   buildTransactionFilter,
   isFilterActive,
+  type DatePreset,
   type FilterState,
 } from '../../services/txFilter';
 import { todayIso } from '../../utils/date';
+import { fonts } from '../../constants/fonts';
 
 export default function TransactionsScreen() {
   const theme = useTheme();
@@ -30,13 +31,20 @@ export default function TransactionsScreen() {
   const money = useMoney();
   const router = useRouter();
   const db = useSQLiteContext();
+  // Arriving from Home's Income/Spent tiles pre-filters to that type and period.
+  const params = useLocalSearchParams<{ type?: string; datePreset?: string }>();
   const transactions = useTransactionsStore((state) => state.transactions);
   const loadTransactions = useTransactionsStore((state) => state.load);
   const categories = useCategoriesStore((state) => state.categories);
-  const accounts = useAccountsStore((state) => state.accounts);
-  const loadAccounts = useAccountsStore((state) => state.load);
 
-  const [filterState, setFilterState] = useState<FilterState>(EMPTY_FILTER);
+  const [filterState, setFilterState] = useState<FilterState>(() => {
+    if (params.type !== 'income' && params.type !== 'expense') return EMPTY_FILTER;
+    const validPresets: DatePreset[] = ['week', 'month', 'year'];
+    const datePreset = validPresets.includes(params.datePreset as DatePreset)
+      ? (params.datePreset as DatePreset)
+      : 'month';
+    return { ...EMPTY_FILTER, type: params.type, datePreset };
+  });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [totals, setTotals] = useState({ incomeMinor: 0, expenseMinor: 0 });
 
@@ -50,15 +58,14 @@ export default function TransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadTransactions(db, filter);
-      loadAccounts(db);
       sumsByType(db, filter).then(setTotals);
-    }, [db, filter, loadTransactions, loadAccounts])
+    }, [db, filter, loadTransactions])
   );
 
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
-  const accountById = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [accounts]);
   const activeCount = activeFilterCount(filterState);
   const filtered = isFilterActive(filterState);
+  const balanceMinor = totals.incomeMinor - totals.expenseMinor;
 
   const header = (
     <View style={styles.header}>
@@ -104,23 +111,56 @@ export default function TransactionsScreen() {
         </Pressable>
       </View>
 
-      {filtered && (
-        <View style={styles.summaryRow}>
-          <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>
-            {transactions.length === 1 ? t('tx.resultOne') : t('tx.resultCount', { count: transactions.length })}
-          </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 13 }} numberOfLines={1}>
-            <Text style={{ color: theme.income, fontWeight: '700' }}>+{money(totals.incomeMinor)}</Text>
-            {'   '}
-            <Text style={{ color: theme.expense, fontWeight: '700' }}>−{money(totals.expenseMinor)}</Text>
-          </Text>
+      <View style={styles.summaryRow}>
+        <Text style={{ color: theme.textMuted, fontSize: 13, fontFamily: fonts.semibold }}>
+          {filtered
+            ? transactions.length === 1
+              ? t('tx.resultOne')
+              : t('tx.resultCount', { count: transactions.length })
+            : transactions.length === 1
+              ? t('tx.totalOne')
+              : t('tx.totalCount', { count: transactions.length })}
+        </Text>
+        <View style={styles.totalsRow}>
+          <View style={styles.totalItem}>
+            <Icon name="tray-arrow-down" size={14} color={theme.income} />
+            <Text style={{ color: theme.income, fontFamily: fonts.bold, fontSize: 13 }} numberOfLines={1}>
+              {money(totals.incomeMinor)}
+            </Text>
+          </View>
+          <View style={styles.totalItem}>
+            <Icon name="tray-arrow-up" size={14} color={theme.expense} />
+            <Text style={{ color: theme.expense, fontFamily: fonts.bold, fontSize: 13 }} numberOfLines={1}>
+              {money(totals.expenseMinor)}
+            </Text>
+          </View>
+          <View style={styles.totalItem}>
+            <Icon name="scale-balance" size={14} color={balanceMinor < 0 ? theme.danger : theme.text} />
+            <Text
+              style={{ color: balanceMinor < 0 ? theme.danger : theme.text, fontFamily: fonts.bold, fontSize: 13 }}
+              numberOfLines={1}
+            >
+              {money(balanceMinor)}
+            </Text>
+          </View>
         </View>
-      )}
+      </View>
     </View>
   );
 
+  const fabNode = (
+    <Pressable
+      onPress={() => router.push('/transactions/new')}
+      style={[styles.fab, { backgroundColor: theme.primary }]}
+      accessibilityRole="button"
+      accessibilityLabel={t('home.addTransaction')}
+    >
+      <Icon name="plus" size={28} color="#FFFFFF" />
+    </Pressable>
+  );
+
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} overlay={fabNode}>
       <FlatList
         data={transactions}
         keyExtractor={(item) => item.id}
@@ -132,7 +172,6 @@ export default function TransactionsScreen() {
           <TransactionRow
             transaction={item}
             category={item.categoryId ? (categoryById.get(item.categoryId) ?? null) : null}
-            account={item.accountId ? (accountById.get(item.accountId) ?? null) : null}
             onPress={() => router.push(`/transactions/${item.id}`)}
           />
         )}
@@ -151,7 +190,6 @@ export default function TransactionsScreen() {
         state={filterState}
         onChange={setFilterState}
         categories={categories.filter((category) => !category.isArchived)}
-        accounts={accounts}
       />
     </Screen>
   );
@@ -189,6 +227,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  badgeText: { color: '#FFFFFF', fontSize: 11, fontFamily: fonts.extrabold },
+  summaryRow: { gap: 6 },
+  totalsRow: { flexDirection: 'row', gap: 14 },
+  totalItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
 });

@@ -5,6 +5,7 @@ import { useTheme } from '../constants/theme';
 import { shortMonthLabel } from '../i18n';
 import { useTranslation } from '../i18n/useTranslation';
 import type { MonthlyTotal } from '../repositories/transactionsRepository';
+import { fonts } from '../constants/fonts';
 
 interface BarChartProps {
   data: MonthlyTotal[];
@@ -65,5 +66,5 @@ const styles = StyleSheet.create({
   plot: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end' },
   column: { alignItems: 'center' },
   axis: { flexDirection: 'row', justifyContent: 'space-around', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 6 },
-  axisLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center', minWidth: 32 },
+  axisLabel: { fontSize: 11, fontFamily: fonts.semibold, textAlign: 'center', minWidth: 32 },
 });

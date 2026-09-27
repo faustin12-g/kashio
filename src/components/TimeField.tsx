@@ -4,6 +4,7 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { useTheme } from '../constants/theme';
 import { formatTime, parseTime } from '../services/reminders';
 import { Icon } from './Icon';
+import { fonts } from '../constants/fonts';
 
 interface TimeFieldProps {
   /** 24-hour "HH:mm". */
@@ -61,7 +62,7 @@ export function TimeField({ value, onChange, label }: TimeFieldProps) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   field: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,8 +2,6 @@ import type { SQLiteBindValue, SQLiteDatabase } from 'expo-sqlite';
 
 /** The tables that can be written to by a backup restore. A fixed list keeps table names out of user data. */
 export type UpsertableTable =
-  | 'accounts'
-  | 'transfers'
   | 'goals'
   | 'goal_contributions'
   | 'debts'

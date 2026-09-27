@@ -33,4 +33,5 @@ export const META_KEYS = {
   driveFolderId: 'drive_backup_folder_id',
   lastBackupAt: 'last_backup_at',
   lastRestoreAt: 'last_restore_at',
+  lastSeenVersion: 'last_seen_app_version',
 } as const;
